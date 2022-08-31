@@ -12,40 +12,41 @@ namespace mathlib
     public:
         static double randomRealNumber();
         //static double randomRealNumber(const double& x0, const double& x1);
-        static int randomDiscreteEvent(const std::vector<double>& eventProbabilities);
+        static int discreteEvent(const std::vector<double>& eventProbabilities);
     };
     
     /* ============================================================== */
     
-    float Probability::randomRealNumber()
+    double Probability::randomRealNumber()
     {
         return (double) rand() / RAND_MAX;
     }
     
-    unsigned int Probability::randomDiscreteEvent(const std::vector<double>& eventProbabilities)
+    int Probability::discreteEvent(const std::vector<double>& dist)
     {
         // create vector of event boundaries and cumulative variable
-        std::vector<double> eventBoundaries(eventProbabilities.size() + 1, 0.0);
+        std::vector<double> distBoundaries(dist.size() + 1, 0.0);
         double cumulat = 0.0;
-
+        int numEvents = dist.size();
+        
         // calculate event region boundaries
-        for (unsigned int i = 0; i < eventProbabilities.size(); ++i)
+        for (int i = 0; i < numEvents; ++i)
         {
-            cumulat += prob[i];
-            eventBoundaries[i + 1] = cumulat;
+            cumulat += dist[i];
+            distBoundaries[i + 1] = cumulat;
         }
 
         // generate random number
-        double randomNum = randomNumber();
+        double randomNum = randomRealNumber();
 
         // identify the region index that the random number lies in
-        for (unsigned int i = 0; i < eventProbabilities.size(); ++i)
+        for (int i = 0; i < numEvents; ++i)
         {
-            if ((randomNum >= eventBoundaries[i]) && (randomNum <= eventBoundaries[i + 1]))
+            if ((randomNum >= distBoundaries[i]) && (randomNum <= distBoundaries[i + 1]))
             {
                 return i;
             }
         }
+        return -1;
     }
-}
 }
