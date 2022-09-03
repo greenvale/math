@@ -1,15 +1,20 @@
 #include <iostream>
 #include <vector> 
 
-#include <linearAlgebra.hpp>
+#include <matrix.hpp>
 
 int main() 
 {
-    std::vector<std::vector<double>> inputs = { {2.0, 2.0, 4.0, 18.0}, {3.0, -1.0, 2.0, 7.0}, {1.5, 0.5, -1.0, -0.5} };
+    double data1[] = {1.0, 2.0, 3.0, 4.0};
+    double data2[] = {2.0, 3.0, 1.0, 5.0, 3.0, 8.0};
     
-    mathlib::LinearAlgebra<double>::printMatrix_stdvec(inputs);
+    Matrix2<double> mat1(2,2,data1);
+    Matrix2<double> mat2(2,3,data2);
     
-    std::vector<double> result = mathlib::LinearAlgebra<double>::gaussElim_stdvec(3, inputs);
+    Matrix2<double> mat3 = mat1;
     
-    mathlib::LinearAlgebra<double>::printMatrix_stdvec({ result });
+    Matrix2<double> mat4;
+    
+    mat4 = mat2;
+    
 }
