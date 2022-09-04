@@ -23,6 +23,7 @@ public:
     Matrix(int numRows, int numCols, const T& value);
     Matrix(int numRows, int numCols, const T* data);
     Matrix(int numRows, int numCols, const std::vector<std::vector<T>>& data);
+    Matrix(int dir, const std::vector<T>& data); // row or col vector constructor
     Matrix(const Matrix<T>& matrix); // copy ctor
     ~Matrix();
     
@@ -54,7 +55,6 @@ public:
     
     // matrix functions
     void resize(int numRows, int numCols);
-    void transpose();
     
     void insertRows(int row, int numRows, const Matrix<T>& matrix);
     void insertCols(int col, int numCols, const Matrix<T>& matrix);
@@ -77,9 +77,16 @@ public:
     // row reduction (scale row already declared)
     void replaceRow(int row0, int row1, const T& coef);
     void swapRow(int row0, int row1);
+    int getLeadingIndexFromRow(int row) const;
+    int getLeadingIndexFromCol(int col) const;
     
+    void transpose();
+    Matrix<T> getTranspose() const;
+    void echelonForm();
+    void reducedEchelonForm();
     Matrix<T> getEchelonForm() const;
-    
+    Matrix<T> getReducedEchelonForm() const;
+    void invert();
     Matrix<T> getInverse() const;
     
 };
@@ -115,6 +122,9 @@ Matrix<T>::Matrix()
 template <class T>
 Matrix<T>::Matrix(int numRows, int numCols)
 {
+    assert(numRows > 0);
+    assert(numCols > 0);
+    
     m_numRows = numRows;
     m_numCols = numCols;
     m_data = new T[numRows * numCols];
@@ -123,6 +133,9 @@ Matrix<T>::Matrix(int numRows, int numCols)
 template <class T>
 Matrix<T>::Matrix(int numRows, int numCols, const T&  value)
 {
+    assert(numRows > 0);
+    assert(numCols > 0);
+    
     m_numRows = numRows;
     m_numCols = numCols;
     m_data = new T[numRows * numCols];
@@ -135,6 +148,9 @@ Matrix<T>::Matrix(int numRows, int numCols, const T&  value)
 template <class T>
 Matrix<T>::Matrix(int numRows, int numCols, const T* data)
 {
+    assert(numRows > 0);
+    assert(numCols > 0);
+    
     m_numRows = numRows;
     m_numCols = numCols;
     m_data = new T[numRows * numCols];
@@ -148,15 +164,42 @@ Matrix<T>::Matrix(int numRows, int numCols, const T* data)
 template <class T>
 Matrix<T>::Matrix(int numRows, int numCols, const std::vector<std::vector<T>>& data)
 {
+    assert(numRows > 0);
+    assert(numCols > 0);
+    assert(data.size() == numRows);
+    
     m_numRows = numRows;
     m_numCols = numCols;
     m_data = new T[numRows * numCols];
+    
     for (int i = 0; i < numRows; ++i)
     {
+        assert(data[i].size() == numCols);
+        
         for (int j = 0; j < numCols; ++j)
         {
             m_data[index(i, j)] = data[i][j];
         }        
+    }
+}
+
+// constructor that takes data in std::vector form
+template <class T>
+Matrix<T>::Matrix(int dir, const std::vector<T>& data)
+{
+    assert(data.size() > 0);
+    
+    m_numRows = data.size();
+    m_numCols = 1;
+    m_data = new T[m_numRows * m_numCols];
+    for (int i = 0; i < m_numRows; ++i)
+    {
+        m_data[index(i, 0)] = data[i];        
+    }
+    
+    if (dir == 0)
+    {
+        transpose();
     }
 }
 
@@ -901,19 +944,156 @@ void Matrix<T>::swapRow(int row0, int row1)
     setRow(row1, temp);
 }
 
-// return matrix in echelon form
+template <class T>
+int Matrix<T>::getLeadingIndexFromRow(int row) const
+{
+    for (int i = 0; i < m_numCols; ++i)
+    {
+        if (get(row, i) != 0.0)
+        {
+            return i;
+        }   
+    }
+    return -1;
+}
+
+template <class T>
+int Matrix<T>::getLeadingIndexFromCol(int col) const
+{
+    for (int i = 0; i < m_numRows; ++i)
+    {
+        if (getLeadingIndexFromRow(i) == col)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// transpose matrix
+template <class T>
+void Matrix<T>::transpose()
+{
+    // create copy of matrix
+    Matrix<T> tmp = *this;
+    
+    int tmp2 = m_numCols;
+    m_numCols = m_numRows;
+    m_numRows = tmp2;
+    
+    delete[] m_data;
+    m_data = new T[m_numRows * m_numCols];
+    
+    for (int i = 0; i < m_numRows; ++i)
+    {
+        Matrix<T> tmp3 = tmp.getCol(i);
+        tmp3.resize(1, m_numCols);
+        setRow(i, tmp3);
+    }
+}
+
+// return transpose matrix (note this is highly inefficient as it involves several copies of matrix, but simple implementation)
+template <class T>
+Matrix<T> Matrix<T>::getTranspose() const
+{
+    Matrix<T> tmp = *this;
+    tmp.transpose();
+    return tmp;
+}
+
+// change matrix into echelon form
+template <class T>
+void Matrix<T>::echelonForm()
+{
+    // not all pivots will on diagonal - therefore keep running var of row index as col changes
+    int pivotRow = 0;
+    
+    // iterate through each col
+    for (int i = 0; i < m_numCols; ++i)
+    {        
+        int skipRow = 0;
+        
+        // if this pivot row is zero, check if all terms below are zero too
+        if (get(pivotRow, i) == 0.0)
+        {
+            int replaceIndex = -1;
+            
+            for (int j = pivotRow; j < m_numRows; ++j)
+            {
+                if ((get(j, i) != 0.0) && (replaceIndex == -1))
+                {
+                    replaceIndex = j;
+                }
+            }
+            
+            if (replaceIndex == -1)
+            {
+                // all terms on this col below row val are zero due to cancellation - skip this row as it's already sorted
+                skipRow = 1;
+            }
+            else
+            {
+                replaceRow(pivotRow, replaceIndex, 1.0);
+            }
+        }
+        
+        // if a pivot is going to be made on this row then row reduce all rows below to get zeros below this pivot
+        if (skipRow == 0)
+        {
+            // eliminate all zeros below
+            for (int j = pivotRow + 1; j < m_numRows; ++j)
+            {
+                if (get(j, i) != 0.0)
+                {
+                    replaceRow(j, pivotRow, -1.0 * get(j, i) / get(pivotRow, i));
+                }
+            }
+            
+            pivotRow++;
+        }
+    }
+}
+
+template <class T>
+void Matrix<T>::reducedEchelonForm()
+{
+    // put matrix in echelon form
+    echelonForm();
+    
+    // assumes matrix is augmented matrix - loop through columns to make sure terms above are zero
+    for (int i = m_numCols - 2; i > 0; --i)
+    {
+        // check if there is pivot on this row
+        int pivotRow = getLeadingIndexFromCol(i);
+        std::cout << "Col: " << i << "; Pivot row: " << pivotRow << std::endl;
+        
+        if (pivotRow != -1)
+        {
+            for (int j = pivotRow - 1; j >= 0; --j)
+            {
+                replaceRow(j, pivotRow, -1.0 * get(j, i) / get(pivotRow, i));
+            }
+            
+            // normalise pivot
+            scaleRow(pivotRow, 1.0 / get(pivotRow, i));
+        }
+    }
+}
+
 template <class T>
 Matrix<T> Matrix<T>::getEchelonForm() const
 {
-    Matrix<T> result = *this;
-    
-    // iterate through each col and ensure leading row at top
-    for (int i = 0; i < m_numCols; ++i)
-    {
+    Matrix<T> tmp = *this;
+    tmp.echelonForm();
+    return tmp; 
+}
 
-    }
-    
-    return result;
+template <class T>
+Matrix<T> Matrix<T>::getReducedEchelonForm() const
+{
+    Matrix<T> tmp = *this;
+    tmp.reducedEchelonForm();
+    return tmp;
 }
 
 
