@@ -15,7 +15,9 @@ int main()
     
     std::cout<<"========="<<std::endl;
     
-    mat2.replaceRow(1, 0, -mat2.get(1,0)/mat2.get(0,0));
+    mat2.appendCol(Matrix<double>(3, 1, {{1.1}, {1.2}, {1.3}}));
+    
+    mat2.removeCol(0);
     
     mat2.print();
 }

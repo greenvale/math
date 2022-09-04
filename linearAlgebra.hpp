@@ -6,6 +6,7 @@ William Denny, 1st September 2022
 #include <iostream>
 #include <vector>
 #include <assert.h>
+#include <array>
 
 namespace mathlib
 {
