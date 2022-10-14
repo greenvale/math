@@ -6,7 +6,7 @@ William Denny, 3rd September 2022
 #pragma once
 
 #include <assert.h>
-#include <array>
+#include <vector>
 
 template <class T>
 class Matrix
@@ -32,6 +32,7 @@ public:
     Matrix<T> getRegion(int row0, int row1, int col0, int col1) const;
     Matrix<T> getRow(int row) const;
     Matrix<T> getCol(int col) const;
+    T scalar() const;
     
     void set(int row, int col, const T& value);
     void setRegion(int row0, int row1, int col0, int col1, const Matrix<T>& matrix);
@@ -86,6 +87,8 @@ public:
     void reducedEchelonForm();
     Matrix<T> getEchelonForm() const;
     Matrix<T> getReducedEchelonForm() const;
+    int getNumPivotCols() const;
+    bool isConsistent() const;
     void invert();
     Matrix<T> getInverse() const;
     
@@ -286,6 +289,15 @@ Matrix<T> Matrix<T>::getCol(int col) const
     return getRegion(0, m_numRows - 1, col, col);
 }
 
+// if the matrix is 1x1 then allow scalar term to be returned
+template <class T>
+T Matrix<T>::scalar() const
+{
+    assert(m_numRows == 1);
+    assert(m_numCols == 1);
+    
+    return get(0, 0);
+}
 
 // set element
 template <class T>
@@ -1002,6 +1014,7 @@ Matrix<T> Matrix<T>::getTranspose() const
 }
 
 // change matrix into echelon form
+// assumes matrix is in augmented form
 template <class T>
 void Matrix<T>::echelonForm()
 {
@@ -1054,6 +1067,7 @@ void Matrix<T>::echelonForm()
     }
 }
 
+// assumes matrix is in augmented form
 template <class T>
 void Matrix<T>::reducedEchelonForm()
 {
@@ -1065,7 +1079,6 @@ void Matrix<T>::reducedEchelonForm()
     {
         // check if there is pivot on this row
         int pivotRow = getLeadingIndexFromCol(i);
-        std::cout << "Col: " << i << "; Pivot row: " << pivotRow << std::endl;
         
         if (pivotRow != -1)
         {
@@ -1080,6 +1093,7 @@ void Matrix<T>::reducedEchelonForm()
     }
 }
 
+// assumes matrix is in augmented form
 template <class T>
 Matrix<T> Matrix<T>::getEchelonForm() const
 {
@@ -1088,6 +1102,7 @@ Matrix<T> Matrix<T>::getEchelonForm() const
     return tmp; 
 }
 
+// assumes matrix is in augmented form
 template <class T>
 Matrix<T> Matrix<T>::getReducedEchelonForm() const
 {
@@ -1096,6 +1111,40 @@ Matrix<T> Matrix<T>::getReducedEchelonForm() const
     return tmp;
 }
 
+// assumes matrix is in augmented form
+template <class T>
+int Matrix<T>::getNumPivotCols() const
+{
+    Matrix<T> tmp = getReducedEchelonForm();
+    int numPivots = 0;
+    
+    for (int i = 0; i < m_numCols; ++i)
+    {
+        if (tmp.getLeadingIndexFromCol(i) != -1)
+        {
+            numPivots++;
+        }
+    }
+    
+    return numPivots;
+}
+
+// assumes matrix is in augmented form
+template <class T>
+bool Matrix<T>::isConsistent() const
+{
+    Matrix<T> tmp = getEchelonForm();
+    
+    for (int i = 0; i < m_numRows; ++i)
+    {
+        if ((tmp.getLeadingIndexFromRow(i) == -1) && (get(i, m_numCols - 1) != 0.0))
+        {
+            return false;
+        }
+    }
+    
+    return true;
+}
 
 /* 
 ======================================================================
