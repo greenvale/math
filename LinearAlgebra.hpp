@@ -25,9 +25,12 @@ public:
     Matrix(const std::vector<unsigned int>& size, const double& val);
     Matrix(const std::vector<unsigned int>& size, const std::vector<std::vector<double>>& mat); // accepts input matrix in vector-vector form
     Matrix(const Matrix& rh); // copy ctor
+    Matrix(Matrix&& rh); // move ctor
+    ~Matrix(); // dtor
 
     // operator overloading
     Matrix& operator=(const Matrix& rh); // copy assignment operator
+    Matrix& operator=(Matrix&& rh); // move assignment operator
     friend bool operator==(const Matrix& lh, const Matrix& rh);
     friend Matrix operator+(const Matrix& lh, const Matrix& rh);
     void operator+=(const Matrix& rh);
@@ -69,9 +72,10 @@ Matrix::Matrix()
     this->m_valArr = nullptr;
 }
 
-/* */ 
+/* ctor - uninitialised matrix with given size */ 
 Matrix::Matrix(const std::vector<unsigned int>& size)
 {
+    //std::cout << "Ctor 1" << std::endl;
     assert(size.size() == 2); // ensure size has correct form
     this->m_size = size;
     this->m_numElems = size[0] * size[1];
@@ -81,6 +85,7 @@ Matrix::Matrix(const std::vector<unsigned int>& size)
 /* */ 
 Matrix::Matrix(const std::vector<unsigned int>& size, const double& val)
 {
+    //std::cout << "Ctor 2" << std::endl;
     assert(size.size() == 2); // ensure size has correct form
     this->m_size = size;
     this->m_numElems = size[0] * size[1];
@@ -94,6 +99,7 @@ Matrix::Matrix(const std::vector<unsigned int>& size, const double& val)
 /* ctor accepting matrix argument in vector-vector form */ 
 Matrix::Matrix(const std::vector<unsigned int>& size, const std::vector<std::vector<double>>& mat)
 {
+    //std::cout << "Ctor 3" << std::endl;
     assert(size.size() == 2); // ensure size has correct form
     assert(size[0] == mat.size()); // ensure mat num rows is consistent with size
     this->m_size = size;
@@ -122,44 +128,87 @@ Matrix::Matrix(const Matrix& rh)
     }
 }
 
+/* move ctor (takes temporary rvalue) */
+Matrix::Matrix(Matrix&& rh)
+{
+    //std::cout << "Move ctor" << std::endl;
+    this->m_size = rh.m_size;
+    this->m_numElems = rh.m_numElems;
+    this->m_valArr = rh.m_valArr;
+    rh.m_size = {};
+    rh.m_numElems = 0;
+    rh.m_valArr = nullptr;
+}
+
+/* dtor */
+Matrix::~Matrix()
+{
+    //std::cout << "Dtor" << std::endl;
+    delete[] this->m_valArr;
+}
+
 /* ************************************************************************* 
 Operator overloading */
 
-/* copy assignment operator */
+/* copy assignment operator for lvalue */
 Matrix& Matrix::operator=(const Matrix& rh)
 {
-    //std::cout << "= operator" << std::endl;
-    this->m_size = rh.m_size;
-    this->m_numElems = rh.m_numElems;
-    if (this->m_valArr != nullptr)
+    //std::cout << "copy assignment operator" << std::endl;
+
+    // prevent self-assignment
+    if (this == &rh)
     {
-        delete[] this->m_valArr;
+        return *this;
     }
-    this->m_valArr = new double[this->m_numElems];
+
+    // if size is not the same, change the size and array size
+    if (this->m_size != rh.m_size)
+    {
+        if (this->m_valArr != nullptr)
+        {
+            delete[] this->m_valArr;
+        }
+        this->m_size = {};
+        this->m_numElems = 0;
+        this->m_valArr = new double[this->m_numElems];
+        this->m_size = rh.m_size;
+        this->m_numElems = rh.m_numElems;
+    }
+
+    // copy values
     for (int i = 0; i < this->m_numElems; ++i)
     {
         this->m_valArr[i] = rh.m_valArr[i];
     }
+    
+    return *this;
+}
+
+/* move assignment operator for rvalue */
+Matrix& Matrix::operator=(Matrix&& rh)
+{
+    //std::cout << "move assignment operator" << std::endl;
+
+    // prevent self-assignment
+    if (this == &rh)
+    {
+        return *this;
+    }
+
+    this->m_size = rh.m_size;
+    this->m_numElems = rh.m_numElems;
+    this->m_valArr = rh.m_valArr;
+    rh.m_size = {};
+    rh.m_numElems = 0;
+    rh.m_valArr = nullptr;
+
+    return *this;
 }
 
 /* comparison operator */
 bool operator==(const Matrix& lh, const Matrix& rh)
 {
-    if (lh.m_size == rh.m_size)
-    {
-        for (int i = 0; i < lh.m_numElems; ++i)
-        {
-            if (lh.m_valArr[i] != rh.m_valArr[i])
-            {
-                return false;
-            }
-        }
-    }
-    else
-    {
-        return false;
-    }
-    return true;
+    return ((lh.m_size == rh.m_size) && (lh.m_valArr == rh.m_valArr));
 }
 
 /* matrix + matrix */
