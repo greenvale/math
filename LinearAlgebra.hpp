@@ -6,6 +6,7 @@
 #include <vector>
 #include <iostream>
 #include <assert.h>
+#include <functional>
 
 /* **************************************************************************************************
     MATRIX
@@ -43,6 +44,9 @@ public:
     void operator*=(const double& rh);
     friend Matrix operator/(const Matrix& lh, const double& rh);
     void operator/=(const double& rh);
+    
+    // customised operations with lambda expressions
+    Matrix operation(const std::function<double(double)>& func);
 
     // matrix manipulation
     void display() const;
@@ -342,6 +346,17 @@ void Matrix::operator/=(const double& rh)
             this->m_valArr[this->ind(i, j)] /= rh;
         }
     }
+}
+
+/* Customised operation with lambda expression of form double func(double) */
+Matrix Matrix::operation(const std::function<double(double)>& func)
+{
+    Matrix result(*this);
+    for (int i = 0; i < this->m_numElems; ++i)
+    {
+        result.m_valArr[i] = func(this->m_valArr[i]);
+    }
+    return result;
 }
 
 /* ************************************************************************* 
