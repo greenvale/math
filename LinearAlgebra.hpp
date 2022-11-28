@@ -46,12 +46,13 @@ public:
     void            operator*=(const double& rh);
     friend Matrix   operator/(const Matrix& lh, const double& rh);
     void            operator/=(const double& rh);
+    double&         operator[](const std::vector<unsigned int>& sub);
     
     // customised uniform operation for all elements given individual function
     void operation(const std::function<double()>& func);
     void operation(const std::function<double(double)>& func);
 
-    // matrix manipulation
+    // basic matrix manipulation
     void display() const;
     std::vector<unsigned int> size() const;
     unsigned int ind(const unsigned int& r, const unsigned int& c) const;
@@ -66,11 +67,13 @@ public:
     Matrix resize(const unsigned int& numRows, const unsigned int& numCols);
     Matrix transpose();
     bool isEmpty();
+    bool isSquare();
+    bool isSymmetric();
 
     // matrix instance types
     static Matrix identity(const unsigned int& size);
     static Matrix diag(const Matrix& vals);
-    static Matrix emptyMatrix();
+    static Matrix empty();
 
     // Gauss-Jordan elimination
     void swapRows(const unsigned int& r0, const unsigned int& r1);
@@ -79,7 +82,14 @@ public:
     unsigned int leadingEntryCol(const unsigned int& r);
     std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> rowRedEchelonForm();
     static Matrix solve_GJ(const Matrix& A, const Matrix& b);
-    static Matrix invert_GJ(const Matrix& mat);
+    Matrix inverse_GJ();
+
+    // determinants
+    Matrix minor(const unsigned int& r, const unsigned int& c);
+    double determinant();
+
+    // subspaces
+
 
 };
 
@@ -364,6 +374,13 @@ void Matrix::operator/=(const double& rh)
     }
 }
 
+/* */
+double& Matrix::operator[](const std::vector<unsigned int>& sub)
+{
+    assert(sub.size() == 2);
+    return this->m_valArr[this->ind(sub[0], sub[1])];
+}
+
 /* customised uniform operation for all elements given individual function */
 void Matrix::operation(const std::function<double()>& func)
 {
@@ -400,6 +417,7 @@ void Matrix::display() const
 /* returns index in valArr of element at position (r, c) - in row-ordered matrix storage */
 unsigned int Matrix::ind(const unsigned int& r, const unsigned int& c) const
 {
+    assert((r <= this->m_size[0]) && (c < this->m_size[1]));
     return r * this->m_size[1] + c;
 }
 
@@ -645,9 +663,35 @@ Matrix Matrix::transpose()
     return result;
 }
 
+/* checks if matrix is empty */
 bool Matrix::isEmpty() 
 {
     return ((this->m_size[0] == 0) && (this->m_size[1] == 0) && (this->m_numElems == 0) && (this->m_valArr == nullptr));
+}
+
+/* checks if matrix is square */
+bool Matrix::isSquare() 
+{
+    return (this->m_size[0] == this->m_size[1]);
+}
+
+/* checks if matrix is symmetric */
+bool Matrix::isSymmetric()
+{
+    if (this->m_size[0] != this->m_size[1])
+        return false;
+    
+    for (unsigned int i = 0; i < this->m_size[0]; ++i)
+    {
+        for (unsigned int j = 0; j < this->m_size[0]; ++j)
+        {
+            if (this->m_valArr[this->ind(i, j)] != this->m_valArr[this->ind(j, i)])
+            {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 /* ************************************************************************* 
@@ -659,7 +703,7 @@ Matrix Matrix::identity(const unsigned int& size)
     Matrix ident({size, size}, 0.0);
     for (unsigned int i = 0; i < size; ++i)
     {
-        ident.set({i, i}, 1.0);
+        ident.m_valArr[ident.ind(i, i)] = 1.0;
     }
     return ident;
 }
@@ -672,13 +716,13 @@ Matrix Matrix::diag(const Matrix& vals)
     Matrix result({vals.size()[0], vals.size()[0]}, 0.0);
     for (unsigned int i = 0; i < vals.size()[0]; ++i)
     {
-        result.set({i, i}, vals.get({i, 0}));
+        result.m_valArr[result.ind(i, i)] = vals.m_valArr[vals.ind(i, 0)];
     }
     return result;
 }
 
 /* returns empty matrix */
-Matrix Matrix::emptyMatrix()
+Matrix Matrix::empty()
 {
     Matrix result;
     return result;
@@ -734,7 +778,7 @@ unsigned int Matrix::leadingEntryCol(const unsigned int& r)
 std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> Matrix::rowRedEchelonForm() 
 {
     unsigned int solutionType = 1;
-    Matrix mat = *this;
+    Matrix mat(*this);
 
     // get indexes of zero rows
     std::vector<unsigned int> zeroRowArr = {};
@@ -834,27 +878,66 @@ Matrix Matrix::solve_GJ(const Matrix& A, const Matrix& b)
         return reducedAugMat.getRegion({0, reducedAugMat.m_size[1] - 1}, {reducedAugMat.m_size[0], 1});
     else
         // otherwise return empty matrix
-        return Matrix::emptyMatrix();
+        return Matrix::empty();
 }
 
 /* inverts a matrix by augmenting on right with identity and reducing to row echelon form thereby obtaining identity on the left and inverse on the right */
-Matrix Matrix::invert_GJ(const Matrix& mat)
+Matrix Matrix::inverse_GJ()
 { 
-    if (mat.size()[0] != mat.size()[1])
-        return Matrix::emptyMatrix(); // if not a square matrix then return empty matrix as obviously not invertible
+    if (this->size()[0] != this->size()[1])
+        return Matrix::empty(); // if not a square matrix then return empty matrix as obviously not invertible
     
-    Matrix augMat = mat;
-    augMat.insertCols(mat.size()[1], Matrix::identity(mat.size()[0]));
+    Matrix augMat(*this);
+    augMat.insertCols(this->size()[1], Matrix::identity(this->size()[0]));
+
     std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> tup = augMat.rowRedEchelonForm();
     Matrix reducedAugMat = std::get<0>(tup);
     unsigned int solutionType = std::get<2>(tup);
 
     if (solutionType == 1) // correct number of pivots found, all are located in the LH square region of interest
     {
-        return reducedAugMat.getRegion({0, mat.size()[0]}, {mat.size()[0], mat.size()[0]});
+        return reducedAugMat.getRegion({0, this->size()[0]}, {this->size()[0], this->size()[0]});
     }
     else
-        return Matrix::emptyMatrix();
+        return Matrix::empty();
 }
+
+/* ************************************************************************* 
+Determinants */
+
+/* returns the minor of the current matrix */
+Matrix Matrix::minor(const unsigned int& r, const unsigned int& c) 
+{
+    Matrix result(*this);
+    result.removeRows(r, 1);
+    result.removeCols(c, 1);
+    return result;
+}
+
+/* calculates the determinant using recursive formula - note this is not computationally efficient, just a proof of concept */
+double Matrix::determinant()
+{
+    if ((this->m_size[0] == 1) && (this->m_size[1] == 1))
+    {
+        return this->m_valArr[0];
+    }
+    else
+    {
+        double det = 0.0;
+        double sign = 1.0;
+        for (unsigned int i = 0; i < this->m_size[1]; ++i)
+        {
+            Matrix min = this->minor(0, i);
+            det += sign * this->m_valArr[this->ind(0, i)] * min.determinant();
+            sign *= -1.0;  
+        }
+        return det;
+    }
+}
+
+/* ************************************************************************* 
+Subspaces */
+
+
 
 } // namespace mathlib
