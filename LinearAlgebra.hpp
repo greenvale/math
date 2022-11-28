@@ -1,4 +1,4 @@
-/* Linear Algebra library 
+/* Linear Algebra library by William Denny (greenvale)
 - Matrix class is higher-performance than v1
 */
 #pragma once
@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <functional>
 #include <map>
+#include <tuple>
 
 /* **************************************************************************************************
     MATRIX
@@ -78,7 +79,7 @@ public:
     unsigned int leadingEntryCol(const unsigned int& r);
     std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> rowRedEchelonForm();
     static Matrix solve_GJ(const Matrix& A, const Matrix& b);
-    Matrix invert_GJ();
+    static Matrix invert_GJ(const Matrix& mat);
 
 };
 
@@ -776,9 +777,9 @@ std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> Matrix:
                 mat.swapRows(targetRow, i);
                 mat.scaleRow(targetRow, 1.0 / mat.m_valArr[mat.ind(targetRow, targetCol)]);
                 pivots.push_back(std::vector<unsigned int>({targetRow, targetCol}));
-                if (targetCol == mat.m_size[1] - 1)
+                if (targetCol >= mat.m_size[0]) // this condition might need to be corrected...
                 {
-                    solutionType = 0;
+                    solutionType = 0; // pivot located outside on LH square region of interest
                 }
                 break;
             }
@@ -810,7 +811,7 @@ std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> Matrix:
         }
     }
 
-    if ((solutionType != 0) && (pivots.size() < mat.m_size[0]))
+    if ((solutionType != 0) && (pivots.size() < mat.m_size[0])) // check that sufficient pivots are found (= number of rows) otherwise there are infinite solutions 
     {
         solutionType = 2;
     }
@@ -833,6 +834,26 @@ Matrix Matrix::solve_GJ(const Matrix& A, const Matrix& b)
         return reducedAugMat.getRegion({0, reducedAugMat.m_size[1] - 1}, {reducedAugMat.m_size[0], 1});
     else
         // otherwise return empty matrix
+        return Matrix::emptyMatrix();
+}
+
+/* inverts a matrix by augmenting on right with identity and reducing to row echelon form thereby obtaining identity on the left and inverse on the right */
+Matrix Matrix::invert_GJ(const Matrix& mat)
+{ 
+    if (mat.size()[0] != mat.size()[1])
+        return Matrix::emptyMatrix(); // if not a square matrix then return empty matrix as obviously not invertible
+    
+    Matrix augMat = mat;
+    augMat.insertCols(mat.size()[1], Matrix::identity(mat.size()[0]));
+    std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> tup = augMat.rowRedEchelonForm();
+    Matrix reducedAugMat = std::get<0>(tup);
+    unsigned int solutionType = std::get<2>(tup);
+
+    if (solutionType == 1) // correct number of pivots found, all are located in the LH square region of interest
+    {
+        return reducedAugMat.getRegion({0, mat.size()[0]}, {mat.size()[0], mat.size()[0]});
+    }
+    else
         return Matrix::emptyMatrix();
 }
 

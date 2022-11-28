@@ -11,5 +11,9 @@ int main()
 
     mathlib::Matrix x = mathlib::Matrix::solve_GJ(A, b);
 
-    x.display();
+    mathlib::Matrix Ainv = mathlib::Matrix::invert_GJ(A);
+
+    Ainv.display();
+
+    (Ainv * b).display();
 }
