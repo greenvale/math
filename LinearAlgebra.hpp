@@ -64,17 +64,21 @@ public:
     void removeCols(const unsigned int& colSub, const unsigned int& numCols);
     Matrix resize(const unsigned int& numRows, const unsigned int& numCols);
     Matrix transpose();
+    bool isEmpty();
 
     // matrix instance types
     static Matrix identity(const unsigned int& size);
     static Matrix diag(const Matrix& vals);
+    static Matrix emptyMatrix();
 
     // Gauss-Jordan elimination
     void swapRows(const unsigned int& r0, const unsigned int& r1);
     void scaleRow(const unsigned int& r, const double& a);
     void axpyRow(const unsigned int& rx, const unsigned int& ry, const double& a);
     unsigned int leadingEntryCol(const unsigned int& r);
-    void echelonForm();
+    std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> rowRedEchelonForm();
+    static Matrix solve_GJ(const Matrix& A, const Matrix& b);
+    Matrix invert_GJ();
 
 };
 
@@ -640,6 +644,11 @@ Matrix Matrix::transpose()
     return result;
 }
 
+bool Matrix::isEmpty() 
+{
+    return ((this->m_size[0] == 0) && (this->m_size[1] == 0) && (this->m_numElems == 0) && (this->m_valArr == nullptr));
+}
+
 /* ************************************************************************* 
 Matrix types */
 
@@ -667,6 +676,13 @@ Matrix Matrix::diag(const Matrix& vals)
     return result;
 }
 
+/* returns empty matrix */
+Matrix Matrix::emptyMatrix()
+{
+    Matrix result;
+    return result;
+}
+
 /* ************************************************************************* 
 Gauss-Jordan elimination */
 
@@ -686,7 +702,10 @@ void Matrix::scaleRow(const unsigned int& r, const double& a)
 {
     for (unsigned int i = 0; i < this->m_size[1]; ++i)
     {
-        this->m_valArr[this->ind(r, i)] *= a;
+        if (this->m_valArr[this->ind(r, i)] != 0.0)
+        {
+            this->m_valArr[this->ind(r, i)] *= a;
+        }
     }
 }
 
@@ -710,17 +729,20 @@ unsigned int Matrix::leadingEntryCol(const unsigned int& r)
     return this->m_size[1];
 }
 
-/* gauss-jordan elimination */
-void Matrix::echelonForm() 
+/* gauss-jordan elimination to get row-reduced echelon form */
+std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> Matrix::rowRedEchelonForm() 
 {
+    unsigned int solutionType = 1;
+    Matrix mat = *this;
+
     // get indexes of zero rows
     std::vector<unsigned int> zeroRowArr = {};
-    for (unsigned int i = 0; i < this->m_size[0]; ++i)
+    for (unsigned int i = 0; i < mat.m_size[0]; ++i)
     {
         bool zero = true;
-        for (unsigned int j = 0; j < this->m_size[1]; ++j)
+        for (unsigned int j = 0; j < mat.m_size[1]; ++j)
         {
-            if (this->m_valArr[this->ind(i, j)] != 0.0)
+            if (mat.m_valArr[mat.ind(i, j)] != 0.0)
                 zero = false;
         }
         if (zero == true)
@@ -728,30 +750,90 @@ void Matrix::echelonForm()
     }
 
     // swap out each row index with bottom rows to make sure all zero rows are on the bottom
-    int targetRow = this->m_size[0] - 1;
+    unsigned int zeroTargetRow = mat.m_size[0] - 1;
     for (unsigned int i = 0; i < zeroRowArr.size(); ++i)
     {
-        this->swapRows(zeroRowArr[i], targetRow);
-        targetRow--;
+        mat.swapRows(zeroRowArr[i], zeroTargetRow);
+        zeroTargetRow--;
     }
 
-    // get the col indexes of leading entries for each row
-    //std::vector<unsigned int> leadingEntryColArr = {};
-    std::map<unsigned int, unsigned int> leadingEntryMap = {};
-    for (unsigned int i = 0; i < this->m_size[0]; ++i)
+    // locate pivots
+    // loop down each row for each col to locate pivots and place them at the top most 'target row', which increments each time a pivot is found
+    // then loop down each row in the pivot's column and axpy each row to make sure there are zeros below each pivot in the pivot's column
+    // then increment the target col to find the next pivot
+    unsigned int targetCol = 0;
+    unsigned int targetRow = 0;
+    std::vector<std::vector<unsigned int>> pivots = {};
+
+    while ((targetRow < mat.m_size[0]) && (targetCol < mat.m_size[1]))
     {
-        //leadingEntryColArr.push_back(this->leadingEntryCol(i));
-        std::cout << i << ": " << leadingEntryCol(i) << std::endl;
-        leadingEntryMap[i] = leadingEntryCol(i);
+        bool found = false;
+        for (unsigned int i = targetRow; i < mat.m_size[0]; ++i)
+        {
+            if (mat.m_valArr[mat.ind(i, targetCol)] != 0.0)
+            {
+                found = true;
+                mat.swapRows(targetRow, i);
+                mat.scaleRow(targetRow, 1.0 / mat.m_valArr[mat.ind(targetRow, targetCol)]);
+                pivots.push_back(std::vector<unsigned int>({targetRow, targetCol}));
+                if (targetCol == mat.m_size[1] - 1)
+                {
+                    solutionType = 0;
+                }
+                break;
+            }
+        }
+
+        if (found == true)
+        {
+            for (unsigned int i = targetRow + 1; i < mat.m_size[0]; ++i)
+            {
+                if (mat.m_valArr[mat.ind(i, targetCol)] != 0.0)
+                {
+                    mat.axpyRow(i, targetRow, -mat.m_valArr[mat.ind(i, targetCol)] / mat.m_valArr[mat.ind(targetRow, targetCol)]);
+                }
+            }
+            targetRow++;
+        }
+        targetCol++;
     }
 
-    for (auto& [key, value] : leadingEntryMap)
+    // ensure all zeros above each pivot
+    for (int i = pivots.size() - 1; i >= 0; --i)
     {
-        std::cout << "[" << key << "] = " << value << std::endl;
+        for (unsigned int j = 0; j < pivots[i][0]; ++j)
+        {
+            if (mat.m_valArr[mat.ind(j, pivots[i][1])] != 0.0)
+            {
+                mat.axpyRow(j, pivots[i][0], -mat.m_valArr[mat.ind(j, pivots[i][1])] / mat.m_valArr[mat.ind(pivots[i][0], pivots[i][1])]);
+            }
+        }
     }
 
-    // swap rows to make sure highest leading entries are at the top
+    if ((solutionType != 0) && (pivots.size() < mat.m_size[0]))
+    {
+        solutionType = 2;
+    }
 
+    return std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int>(mat, pivots, solutionType);
+}
+
+/* solve system of equations */
+Matrix Matrix::solve_GJ(const Matrix& A, const Matrix& b) 
+{
+    Matrix augMat(A);
+    augMat.insertCols(A.m_size[1], b);
+
+    std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> tup = augMat.rowRedEchelonForm();
+    Matrix reducedAugMat = std::get<0>(tup);
+    unsigned int solutionType = std::get<2>(tup);
+
+    if (solutionType == 1)
+        // if there is a single solution then return this
+        return reducedAugMat.getRegion({0, reducedAugMat.m_size[1] - 1}, {reducedAugMat.m_size[0], 1});
+    else
+        // otherwise return empty matrix
+        return Matrix::emptyMatrix();
 }
 
 } // namespace mathlib
