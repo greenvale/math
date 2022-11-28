@@ -7,6 +7,7 @@
 #include <iostream>
 #include <assert.h>
 #include <functional>
+#include <map>
 
 /* **************************************************************************************************
     MATRIX
@@ -30,23 +31,24 @@ public:
     ~Matrix(); // dtor
 
     // operator overloading
-    Matrix& operator=(const Matrix& rh); // copy assignment operator
-    Matrix& operator=(Matrix&& rh); // move assignment operator
-    friend bool operator==(const Matrix& lh, const Matrix& rh);
-    friend Matrix operator+(const Matrix& lh, const Matrix& rh);
-    void operator+=(const Matrix& rh);
-    friend Matrix operator-(const Matrix& lh, const Matrix& rh);
-    void operator-=(const Matrix& rh);
-    friend Matrix operator*(const Matrix& lh, const Matrix& rh);
-    friend Matrix operator*(const double& lh, const Matrix& rh);
-    friend Matrix operator*(const Matrix& lh, const double& rh);
-    void operator*=(const Matrix& rh);
-    void operator*=(const double& rh);
-    friend Matrix operator/(const Matrix& lh, const double& rh);
-    void operator/=(const double& rh);
+    Matrix&         operator=(const Matrix& rh); // copy assignment operator
+    Matrix&         operator=(Matrix&& rh); // move assignment operator
+    friend bool     operator==(const Matrix& lh, const Matrix& rh);
+    friend Matrix   operator+(const Matrix& lh, const Matrix& rh);
+    void            operator+=(const Matrix& rh);
+    friend Matrix   operator-(const Matrix& lh, const Matrix& rh);
+    void            operator-=(const Matrix& rh);
+    friend Matrix   operator*(const Matrix& lh, const Matrix& rh);
+    friend Matrix   operator*(const double& lh, const Matrix& rh);
+    friend Matrix   operator*(const Matrix& lh, const double& rh);
+    void            operator*=(const Matrix& rh);
+    void            operator*=(const double& rh);
+    friend Matrix   operator/(const Matrix& lh, const double& rh);
+    void            operator/=(const double& rh);
     
-    // customised operations with lambda expressions
-    Matrix operation(const std::function<double(double)>& func);
+    // customised uniform operation for all elements given individual function
+    void operation(const std::function<double()>& func);
+    void operation(const std::function<double(double)>& func);
 
     // matrix manipulation
     void display() const;
@@ -60,10 +62,19 @@ public:
     void insertCols(const unsigned int& colSub, const Matrix& mat);
     void removeRows(const unsigned int& rowSub, const unsigned int& numRows);
     void removeCols(const unsigned int& colSub, const unsigned int& numCols);
+    Matrix resize(const unsigned int& numRows, const unsigned int& numCols);
     Matrix transpose();
 
-    // Gauss-Jordan elimination
+    // matrix instance types
+    static Matrix identity(const unsigned int& size);
+    static Matrix diag(const Matrix& vals);
 
+    // Gauss-Jordan elimination
+    void swapRows(const unsigned int& r0, const unsigned int& r1);
+    void scaleRow(const unsigned int& r, const double& a);
+    void axpyRow(const unsigned int& rx, const unsigned int& ry, const double& a);
+    unsigned int leadingEntryCol(const unsigned int& r);
+    void echelonForm();
 
 };
 
@@ -348,15 +359,22 @@ void Matrix::operator/=(const double& rh)
     }
 }
 
-/* Customised operation with lambda expression of form double func(double) */
-Matrix Matrix::operation(const std::function<double(double)>& func)
+/* customised uniform operation for all elements given individual function */
+void Matrix::operation(const std::function<double()>& func)
 {
-    Matrix result(*this);
     for (int i = 0; i < this->m_numElems; ++i)
     {
-        result.m_valArr[i] = func(this->m_valArr[i]);
+        this->m_valArr[i] = func();
     }
-    return result;
+}
+
+/* customised uniform operation for all elements given individual function with 1 parameter (normally element value) */
+void Matrix::operation(const std::function<double(double)>& func)
+{
+    for (int i = 0; i < this->m_numElems; ++i)
+    {
+        this->m_valArr[i] = func(this->m_valArr[i]);
+    }
 }
 
 /* ************************************************************************* 
@@ -598,6 +616,16 @@ void Matrix::removeCols(const unsigned int& colSub, const unsigned int& numCols)
     delete[] tmp;
 }
 
+/* returns resized matrix */
+Matrix Matrix::resize(const unsigned int& numRows, const unsigned int& numCols)
+{
+    assert(numRows * numCols == this->m_numElems);
+    Matrix result = *this;
+    result.m_size[0] = numRows;
+    result.m_size[1] = numCols;
+    return result;
+}
+
 /* returns transpose of matrix */
 Matrix Matrix::transpose()
 {
@@ -613,8 +641,117 @@ Matrix Matrix::transpose()
 }
 
 /* ************************************************************************* 
+Matrix types */
+
+/* returns identity matrix with given size */
+Matrix Matrix::identity(const unsigned int& size)
+{
+    Matrix ident({size, size}, 0.0);
+    for (unsigned int i = 0; i < size; ++i)
+    {
+        ident.set({i, i}, 1.0);
+    }
+    return ident;
+}
+
+/* creates diagonal matrix given col vector of values */
+Matrix Matrix::diag(const Matrix& vals)
+{
+    assert(vals.size()[0] > 0);
+    assert(vals.size()[1] == 1);
+    Matrix result({vals.size()[0], vals.size()[0]}, 0.0);
+    for (unsigned int i = 0; i < vals.size()[0]; ++i)
+    {
+        result.set({i, i}, vals.get({i, 0}));
+    }
+    return result;
+}
+
+/* ************************************************************************* 
 Gauss-Jordan elimination */
 
+/* swap two rows */
+void Matrix::swapRows(const unsigned int& r0, const unsigned int& r1) 
+{
+    for (unsigned int i = 0; i < this->m_size[1]; ++i)
+    {
+        double tmp = this->m_valArr[this->ind(r0, i)];
+        this->m_valArr[this->ind(r0, i)] = this->m_valArr[this->ind(r1, i)];
+        this->m_valArr[this->ind(r1, i)] = tmp;
+    }
+}
 
+/* scale a row */
+void Matrix::scaleRow(const unsigned int& r, const double& a)
+{
+    for (unsigned int i = 0; i < this->m_size[1]; ++i)
+    {
+        this->m_valArr[this->ind(r, i)] *= a;
+    }
+}
+
+/* row axpy */
+void Matrix::axpyRow(const unsigned int& ry, const unsigned int& rx, const double& a)
+{
+    for (unsigned int i = 0; i < this->m_size[1]; ++i)
+    {
+        this->m_valArr[this->ind(ry, i)] += a * this->m_valArr[this->ind(rx, i)];
+    }
+}
+
+/* get leading entry col for a given row index */
+unsigned int Matrix::leadingEntryCol(const unsigned int& r)
+{
+    for (unsigned int i = 0; i < this->m_size[1]; ++i)
+    {
+        if (this->m_valArr[this->ind(r, i)] != 0.0)
+            return i;
+    }
+    return this->m_size[1];
+}
+
+/* gauss-jordan elimination */
+void Matrix::echelonForm() 
+{
+    // get indexes of zero rows
+    std::vector<unsigned int> zeroRowArr = {};
+    for (unsigned int i = 0; i < this->m_size[0]; ++i)
+    {
+        bool zero = true;
+        for (unsigned int j = 0; j < this->m_size[1]; ++j)
+        {
+            if (this->m_valArr[this->ind(i, j)] != 0.0)
+                zero = false;
+        }
+        if (zero == true)
+            zeroRowArr.push_back(i);
+    }
+
+    // swap out each row index with bottom rows to make sure all zero rows are on the bottom
+    int targetRow = this->m_size[0] - 1;
+    for (unsigned int i = 0; i < zeroRowArr.size(); ++i)
+    {
+        this->swapRows(zeroRowArr[i], targetRow);
+        targetRow--;
+    }
+
+    // get the col indexes of leading entries for each row
+    //std::vector<unsigned int> leadingEntryColArr = {};
+    std::map<unsigned int, unsigned int> leadingEntryMap = {};
+    for (unsigned int i = 0; i < this->m_size[0]; ++i)
+    {
+        //leadingEntryColArr.push_back(this->leadingEntryCol(i));
+        std::cout << i << ": " << leadingEntryCol(i) << std::endl;
+        leadingEntryMap[i] = leadingEntryCol(i);
+    }
+
+    for (auto& [key, value] : leadingEntryMap)
+    {
+        std::cout << "[" << key << "] = " << value << std::endl;
+    }
+
+    // swap rows to make sure highest leading entries are at the top
+
+}
 
 } // namespace mathlib
