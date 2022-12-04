@@ -6,14 +6,17 @@
 int main() 
 {
 
-    mathlib::Matrix A({2, 2}, {{2.0, 1.0}, {1.0, -1.0}});
-    mathlib::Matrix b({2, 1}, {{5.0}, {1.0}});
+    //mathlib::Matrix A({4, 5}, {{1.0, 0.0, 1.0, 1.0, 0.0}, {0.0, 0.0, 0.0, 0.0, 0.0}, {0.0, 1.0, 0.0, 1.0, 0.0}, {0.0, 1.0, 0.0, 0.0, 1.0}});
+    mathlib::Matrix A({4, 5}, {{1.0, 0.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0, 0.0}, {0.0, 0.0, 0.0, 0.0, 1.0}});
 
-    mathlib::Matrix x = mathlib::Matrix::solve_GJ(A, b);
+    std::tuple<mathlib::Matrix, std::vector<std::vector<unsigned int>>, unsigned int> tup = A.rowRedEchelonForm();
 
-    mathlib::Matrix Ainv = mathlib::Matrix::invert_GJ(A);
+    mathlib::Matrix rr = std::get<0>(tup);
+    
+    rr.display();
 
-    Ainv.display();
+    std::cout << std::endl;
 
-    (Ainv * b).display();
+    mathlib::Matrix ns = A.nullBasis();
+    ns.display();
 }

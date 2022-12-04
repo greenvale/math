@@ -10,11 +10,50 @@
 #include <map>
 #include <tuple>
 
+namespace mathlib
+{
+/* **************************************************************************************************
+    VECTOR - TBD if this is required
+************************************************************************************************** */
+/*
+class Vector
+{
+private:
+
+public:
+    Vector();
+    Vector(const unsigned int size);
+    Vector(const std::vector<double> data);
+    Vector(const Vector& rh); // copy ctor
+    Vector(Vector&& rh); // move ctor
+    ~Vector();
+
+    // operator overloading
+    Vector&         operator=(const Vector& rh); // copy assignment operator
+    Vector&         operator=(Vector&& rh); // move assignment operator
+    friend bool     operator==(const Vector& lh, const Vector& rh);
+    friend Vector   operator+(const Vector& lh, const Vector& rh);
+    void            operator+=(const Vector& rh);
+    friend Vector   operator-(const Vector& lh, const Vector& rh);
+    void            operator-=(const Vector& rh);
+    void            operator*=(const Vector& rh);
+    void            operator*=(const double& rh);
+    friend Vector   operator/(const Vector& lh, const double& rh);
+    void            operator/=(const double& rh);
+    double&         operator[](const unsigned int& sub);
+
+    // basic operations
+    static double dot(const Vector& lh, const Vector& rh);
+    static Vector cross(const Vector& lh, const Vector& rh);
+
+    // basic manipulation
+
+};
+*/
+
 /* **************************************************************************************************
     MATRIX
 ************************************************************************************************** */
-namespace mathlib
-{
 
 class Matrix
 {
@@ -77,19 +116,18 @@ public:
 
     // Gauss-Jordan elimination
     void swapRows(const unsigned int& r0, const unsigned int& r1);
+    void swapCols(const unsigned int& c0, const unsigned int& c1);
     void scaleRow(const unsigned int& r, const double& a);
     void axpyRow(const unsigned int& rx, const unsigned int& ry, const double& a);
     unsigned int leadingEntryCol(const unsigned int& r);
     std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> rowRedEchelonForm();
     static Matrix solve_GJ(const Matrix& A, const Matrix& b);
     Matrix inverse_GJ();
+    Matrix nullBasis();
 
     // determinants
     Matrix minor(const unsigned int& r, const unsigned int& c);
     double determinant();
-
-    // subspaces
-
 
 };
 
@@ -417,7 +455,7 @@ void Matrix::display() const
 /* returns index in valArr of element at position (r, c) - in row-ordered matrix storage */
 unsigned int Matrix::ind(const unsigned int& r, const unsigned int& c) const
 {
-    assert((r <= this->m_size[0]) && (c < this->m_size[1]));
+    assert((r < this->m_size[0]) && (c < this->m_size[1]));
     return r * this->m_size[1] + c;
 }
 
@@ -462,7 +500,7 @@ void Matrix::setRegion(const std::vector<unsigned int>& sub, const Matrix& mat)
     {
         for (unsigned int j = 0; j < mat.m_size[1]; ++j)
         {
-            this->m_valArr[mat.ind(sub[0] + i, sub[1] + j)] = mat.m_valArr[mat.ind(i, j)];
+            this->m_valArr[this->ind(sub[0] + i, sub[1] + j)] = mat.m_valArr[mat.ind(i, j)];
         }
     }
 }
@@ -742,6 +780,17 @@ void Matrix::swapRows(const unsigned int& r0, const unsigned int& r1)
     }
 }
 
+/* swap two cols */
+void Matrix::swapCols(const unsigned int& c0, const unsigned int& c1) 
+{
+    for (unsigned int i = 0; i < this->m_size[0]; ++i)
+    {
+        double tmp = this->m_valArr[this->ind(i, c0)];
+        this->m_valArr[this->ind(i, c0)] = this->m_valArr[this->ind(i, c1)];
+        this->m_valArr[this->ind(i, c1)] = tmp;
+    }
+}
+
 /* scale a row */
 void Matrix::scaleRow(const unsigned int& r, const double& a)
 {
@@ -774,7 +823,19 @@ unsigned int Matrix::leadingEntryCol(const unsigned int& r)
     return this->m_size[1];
 }
 
-/* gauss-jordan elimination to get row-reduced echelon form */
+/* gauss-jordan elimination to get row-reduced echelon form 
+    returns tuple of reduced matrix, pivot indexes and type of solution available
+    firstly moves all zero rows to the bottom of the matrix
+    then locates pivots by iterating through cols and identifying the first row with a non-zero element then bringing this to the highest possible row
+    below the previous pivot's row
+    then making sure all elements in the target col below this element are zero using axpy operation
+    then all elements above each pivot are eliminated by iterating across the columns in the reverse direction
+
+    returns tuple containing the row-reduced echelon form matrix, the pivot location indexes and a code:
+        0 = inconsistent system
+        1 = unique solution available
+        2 = infinite solutions
+*/
 std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> Matrix::rowRedEchelonForm() 
 {
     unsigned int solutionType = 1;
@@ -818,10 +879,10 @@ std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> Matrix:
             if (mat.m_valArr[mat.ind(i, targetCol)] != 0.0)
             {
                 found = true;
-                mat.swapRows(targetRow, i);
-                mat.scaleRow(targetRow, 1.0 / mat.m_valArr[mat.ind(targetRow, targetCol)]);
-                pivots.push_back(std::vector<unsigned int>({targetRow, targetCol}));
-                if (targetCol >= mat.m_size[0]) // this condition might need to be corrected...
+                mat.swapRows(targetRow, i); // once finding the row with the non zero term in the target column, swap this to be at the target row
+                mat.scaleRow(targetRow, 1.0 / mat.m_valArr[mat.ind(targetRow, targetCol)]); // then scale the target row s.t. the target element is 1
+                pivots.push_back(std::vector<unsigned int>({targetRow, targetCol})); // this is a pivot so add it to the pivot vector
+                if (targetCol >= mat.m_size[0]) // this condition might need to be corrected... assumes that any col beyond the row size (assuming matrix is square) shouldn't have a pivot for consistency
                 {
                     solutionType = 0; // pivot located outside on LH square region of interest
                 }
@@ -829,13 +890,14 @@ std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> Matrix:
             }
         }
 
+        // check if a pivot was found in this column
         if (found == true)
         {
             for (unsigned int i = targetRow + 1; i < mat.m_size[0]; ++i)
             {
                 if (mat.m_valArr[mat.ind(i, targetCol)] != 0.0)
                 {
-                    mat.axpyRow(i, targetRow, -mat.m_valArr[mat.ind(i, targetCol)] / mat.m_valArr[mat.ind(targetRow, targetCol)]);
+                    mat.axpyRow(i, targetRow, -mat.m_valArr[mat.ind(i, targetCol)] / mat.m_valArr[mat.ind(targetRow, targetCol)]); // make sure all elements below the target row in target col are zero
                 }
             }
             targetRow++;
@@ -863,7 +925,9 @@ std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> Matrix:
     return std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int>(mat, pivots, solutionType);
 }
 
-/* solve system of equations */
+/* solve system of equations 
+    requires that A is square
+*/
 Matrix Matrix::solve_GJ(const Matrix& A, const Matrix& b) 
 {
     Matrix augMat(A);
@@ -902,6 +966,77 @@ Matrix Matrix::inverse_GJ()
         return Matrix::empty();
 }
 
+/* finds the null space of a matrix and returns its basis vectors 
+    - obtains the row reduced form
+    - then rearranges columns (and thus variables) to get it in the form
+    { { I_[r * r] , C_[r * (k-r)] }, { 0_[(n-r) * r], 0_[(n-r) * (k-r)] } }
+        with dimension [n * k]
+        where:
+            -> r is the rank of this matrix
+            -> k is the number of cols (num of variables)
+            -> n is the number of rows (num of equations)
+            -> I is identity
+            -> C is arbitrary matrix
+            -> 0 is zero matrix
+            -> [r * c] is the dimension of each matrix with r = rows, c = cols
+
+    - the matrix of null-space basis vectors then has the form
+    { { -C_[r * (k-r)] } , { I_[(k-r) * (k-r)] } }
+        with dimension [k * (k-r)]
+    this means that multiplying this matrix with the row-reduced rearranged matrix, you get a zero matrix of dimension [n * (k - r)] as expected for k-r null-space basis vectors
+    then the rows of the null space basis vectors are rearranged according to the rearrangement map to get the identity on the top LH of the row reduced matrix
+    this ensures that the variables are in the original order provided by the cols of the matrix
+*/
+Matrix Matrix::nullBasis()
+{
+    // get the row echelon form of this matrix
+    std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> tup = this->rowRedEchelonForm();
+    Matrix mat = std::get<0>(tup);
+    std::vector<std::vector<unsigned int>> pivots = std::get<1>(tup);
+    unsigned int solutionType = std::get<2>(tup);
+    unsigned int rank = pivots.size();
+
+    if (rank == this->m_size[1])
+        return Matrix::empty(); // there are same number of pivots as variables therefore nullspace is { 0.0 }
+
+    // create a mapping for variable rearrangement to ensure pivots are contained in a identity matrix on top LH corner of matrix
+    std::vector<unsigned int> rearrangeMap = {};
+    for (unsigned int i = 0; i < this->m_size[1]; ++i)
+        rearrangeMap.push_back(i);
+    
+    // go through pivot positions to determine if swaps need to be made
+    unsigned int targetCol = 0;
+    for (unsigned int i = 0; i < rank; ++i)
+    {
+        if (pivots[i][1] != targetCol)
+        {
+            // need to swap columns, record this in the rearragement mapping
+            mat.swapCols(pivots[i][1], targetCol);
+            rearrangeMap[pivots[i][1]] = targetCol;
+            rearrangeMap[targetCol] = pivots[i][1];
+        }
+        targetCol++;
+    }
+    
+    // construct null basis matrix
+    mathlib::Matrix nullBasis({this->m_size[1], this->m_size[1] - rank}); // create matrix for null basis vectors
+    nullBasis.setRegion({0, 0}, -1.0 * mat.getRegion({0, rank}, {rank, this->m_size[1] - rank})); // adds the -C arbitrary matrix
+    nullBasis.setRegion({rank, 0}, Matrix::identity(this->m_size[1] - rank)); // adds the identity 
+
+    // rearrange rows to get original ordering of variables
+    for (unsigned int i = 0; i < this->m_size[1]; ++i)
+    {
+        if (rearrangeMap[i] != i)
+        {
+            nullBasis.swapRows(rearrangeMap[i], i);
+            rearrangeMap[rearrangeMap[i]] = rearrangeMap[i];
+            rearrangeMap[i] = i;
+        }
+    }
+
+    return nullBasis;
+}
+
 /* ************************************************************************* 
 Determinants */
 
@@ -934,10 +1069,5 @@ double Matrix::determinant()
         return det;
     }
 }
-
-/* ************************************************************************* 
-Subspaces */
-
-
 
 } // namespace mathlib
