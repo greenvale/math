@@ -23,6 +23,7 @@ private:
     std::vector<unsigned int> m_size;
     unsigned int m_num_elems;
     double* m_data;
+
 public:
     Matrix();
     Matrix(const std::vector<unsigned int>& size);
@@ -61,11 +62,11 @@ public:
     void set(const std::vector<unsigned int>& sub, const double& val);
     Matrix get_region(const std::vector<unsigned int>& sub, const std::vector<unsigned int>& size) const;
     void set_region(const std::vector<unsigned int>& sub, const Matrix& mat);
-    void insert_rows(const unsigned int& rowSub, const Matrix& mat);
-    void insert_cols(const unsigned int& colSub, const Matrix& mat);
-    void remove_rows(const unsigned int& rowSub, const unsigned int& numRows);
-    void remove_cols(const unsigned int& colSub, const unsigned int& numCols);
-    Matrix resize(const unsigned int& numRows, const unsigned int& numCols);
+    void insert_rows(const unsigned int& row, const Matrix& mat);
+    void insert_cols(const unsigned int& col, const Matrix& mat);
+    void remove_rows(const unsigned int& row, const unsigned int& num_rows);
+    void remove_cols(const unsigned int& col, const unsigned int& num_cols);
+    Matrix resize(const unsigned int& num_rows, const unsigned int& num_cols);
     Matrix transpose();
     bool is_empty();
     bool is_square();
@@ -85,7 +86,7 @@ public:
     std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> row_reduced_echelon_form();
     static Matrix solve_GJ(const Matrix& A, const Matrix& b);
     Matrix inverse_GJ();
-    Matrix nullBasis();
+    Matrix null_basis();
 
     // determinants
     Matrix minor(const unsigned int& r, const unsigned int& c);
@@ -468,9 +469,9 @@ void Matrix::set_region(const std::vector<unsigned int>& sub, const Matrix& mat)
 }
 
 /* insert rows */
-void Matrix::insert_rows(const unsigned int& rowSub, const Matrix& mat)
+void Matrix::insert_rows(const unsigned int& row, const Matrix& mat)
 {
-    assert(rowSub <= this->m_size[0]);
+    assert(row <= this->m_size[0]);
     assert(mat.m_size[1] == this->m_size[1]);
 
     // copy current array
@@ -495,15 +496,15 @@ void Matrix::insert_rows(const unsigned int& rowSub, const Matrix& mat)
     {
         for (unsigned int j = 0; j < this->m_size[1]; ++j) // loop through cols
         {
-            if (i < rowSub)
+            if (i < row)
             {
                 this->m_data[this->ind(i, j)] = tmp[i * (tmpSize[1]) + j];
             }
-            if ((i >= rowSub) && (i < rowSub + mat.m_size[0]))
+            if ((i >= row) && (i < row + mat.m_size[0]))
             {
-                this->m_data[this->ind(i, j)] = mat.m_data[mat.ind(i - rowSub, j)]; // insert row from mat
+                this->m_data[this->ind(i, j)] = mat.m_data[mat.ind(i - row, j)]; // insert row from mat
             }
-            else if (i >= rowSub + mat.m_size[0])
+            else if (i >= row + mat.m_size[0])
             {
                 this->m_data[this->ind(i, j)] = tmp[(i - mat.m_size[0])*(tmpSize[1]) + j];
             }
@@ -513,9 +514,9 @@ void Matrix::insert_rows(const unsigned int& rowSub, const Matrix& mat)
 }
 
 /* insert cols */
-void Matrix::insert_cols(const unsigned int& colSub, const Matrix& mat)
+void Matrix::insert_cols(const unsigned int& col, const Matrix& mat)
 {
-    assert(colSub <= this->m_size[1]);
+    assert(col <= this->m_size[1]);
     assert(mat.m_size[0] == this->m_size[0]);
 
     // copy current array
@@ -540,15 +541,15 @@ void Matrix::insert_cols(const unsigned int& colSub, const Matrix& mat)
     {
         for (unsigned int j = 0; j < this->m_size[1]; ++j) // loop through cols
         {
-            if (j < colSub)
+            if (j < col)
             {
                 this->m_data[this->ind(i, j)] = tmp[i * (tmpSize[1]) + j];
             }
-            if ((j >= colSub) && (j < colSub + mat.m_size[1]))
+            if ((j >= col) && (j < col + mat.m_size[1]))
             {
-                this->m_data[this->ind(i, j)] = mat.m_data[mat.ind(i, j - colSub)]; // insert col from mat
+                this->m_data[this->ind(i, j)] = mat.m_data[mat.ind(i, j - col)]; // insert col from mat
             }
-            else if (j >= colSub + mat.m_size[1])
+            else if (j >= col + mat.m_size[1])
             {
                 this->m_data[this->ind(i, j)] = tmp[i * (tmpSize[1]) + j - mat.m_size[1]];
             }
@@ -558,10 +559,10 @@ void Matrix::insert_cols(const unsigned int& colSub, const Matrix& mat)
 }
 
 /* remove rows */
-void Matrix::remove_rows(const unsigned int& rowSub, const unsigned int& numRows)
+void Matrix::remove_rows(const unsigned int& row, const unsigned int& num_rows)
 {
-    assert(rowSub + numRows <= this->m_size[0]);
-    assert(numRows > 0);
+    assert(row + num_rows <= this->m_size[0]);
+    assert(num_rows > 0);
 
     // copy current array
     double* tmp = new double[this->m_num_elems];
@@ -576,7 +577,7 @@ void Matrix::remove_rows(const unsigned int& rowSub, const unsigned int& numRows
         delete[] this->m_data;
     }
     std::vector<unsigned int> tmpSize = this->m_size; // copy prev size
-    this->m_size[0] -= numRows;
+    this->m_size[0] -= num_rows;
     this->m_num_elems = this->m_size[0] * this->m_size[1];
     this->m_data = new double[this->m_num_elems];
 
@@ -585,13 +586,13 @@ void Matrix::remove_rows(const unsigned int& rowSub, const unsigned int& numRows
     {
         for (unsigned int j = 0; j < this->m_size[1]; ++j) // loop through cols
         {
-            if (i < rowSub)
+            if (i < row)
             {
                 this->m_data[this->ind(i, j)] = tmp[i * (tmpSize[1]) + j];
             }
-            else if (i >= rowSub)
+            else if (i >= row)
             {
-                this->m_data[this->ind(i, j)] = tmp[(i + numRows)*(tmpSize[1]) + j];
+                this->m_data[this->ind(i, j)] = tmp[(i + num_rows)*(tmpSize[1]) + j];
             }
         }
     }
@@ -599,10 +600,10 @@ void Matrix::remove_rows(const unsigned int& rowSub, const unsigned int& numRows
 }
 
 /* remove cols */
-void Matrix::remove_cols(const unsigned int& colSub, const unsigned int& numCols)
+void Matrix::remove_cols(const unsigned int& col, const unsigned int& num_cols)
 {
-    assert(colSub + numCols <= this->m_size[1]);
-    assert(numCols > 0);
+    assert(col + num_cols <= this->m_size[1]);
+    assert(num_cols > 0);
 
     // copy current array
     double* tmp = new double[this->m_num_elems];
@@ -617,7 +618,7 @@ void Matrix::remove_cols(const unsigned int& colSub, const unsigned int& numCols
         delete[] this->m_data;
     }
     std::vector<unsigned int> tmpSize = this->m_size; // copy prev size
-    this->m_size[1] -= numCols;
+    this->m_size[1] -= num_cols;
     this->m_num_elems = this->m_size[0] * this->m_size[1];
     this->m_data = new double[this->m_num_elems];
 
@@ -626,13 +627,13 @@ void Matrix::remove_cols(const unsigned int& colSub, const unsigned int& numCols
     {
         for (unsigned int j = 0; j < this->m_size[1]; ++j) // loop through cols
         {
-            if (j < colSub)
+            if (j < col)
             {
                 this->m_data[this->ind(i, j)] = tmp[i * (tmpSize[1]) + j];
             }
-            else if (j >= colSub)
+            else if (j >= col)
             {
-                this->m_data[this->ind(i, j)] = tmp[i * (tmpSize[1]) + j + numCols];
+                this->m_data[this->ind(i, j)] = tmp[i * (tmpSize[1]) + j + num_cols];
             }
         }
     }
@@ -640,12 +641,12 @@ void Matrix::remove_cols(const unsigned int& colSub, const unsigned int& numCols
 }
 
 /* returns resized matrix */
-Matrix Matrix::resize(const unsigned int& numRows, const unsigned int& numCols)
+Matrix Matrix::resize(const unsigned int& num_rows, const unsigned int& num_cols)
 {
-    assert(numRows * numCols == this->m_num_elems);
+    assert(num_rows * num_cols == this->m_num_elems);
     Matrix result = *this;
-    result.m_size[0] = numRows;
-    result.m_size[1] = numCols;
+    result.m_size[0] = num_rows;
+    result.m_size[1] = num_cols;
     return result;
 }
 
@@ -949,7 +950,7 @@ Matrix Matrix::inverse_GJ()
     then the rows of the null space basis vectors are rearranged according to the rearrangement map to get the identity on the top LH of the row reduced matrix
     this ensures that the variables are in the original order provided by the cols of the matrix
 */
-Matrix Matrix::nullBasis()
+Matrix Matrix::null_basis()
 {
     // get the row echelon form of this matrix
     std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> tup = this->row_reduced_echelon_form();
@@ -981,22 +982,22 @@ Matrix Matrix::nullBasis()
     }
     
     // construct null basis matrix
-    mathlib::Matrix nullBasis({this->m_size[1], this->m_size[1] - rank}); // create matrix for null basis vectors
-    nullBasis.set_region({0, 0}, -1.0 * mat.get_region({0, rank}, {rank, this->m_size[1] - rank})); // adds the -C arbitrary matrix
-    nullBasis.set_region({rank, 0}, Matrix::identity(this->m_size[1] - rank)); // adds the identity 
+    mathlib::Matrix null_basis({this->m_size[1], this->m_size[1] - rank}); // create matrix for null basis vectors
+    null_basis.set_region({0, 0}, -1.0 * mat.get_region({0, rank}, {rank, this->m_size[1] - rank})); // adds the -C arbitrary matrix
+    null_basis.set_region({rank, 0}, Matrix::identity(this->m_size[1] - rank)); // adds the identity 
 
     // rearrange rows to get original ordering of variables
     for (unsigned int i = 0; i < this->m_size[1]; ++i)
     {
         if (rearrangeMap[i] != i)
         {
-            nullBasis.swap_rows(rearrangeMap[i], i);
+            null_basis.swap_rows(rearrangeMap[i], i);
             rearrangeMap[rearrangeMap[i]] = rearrangeMap[i];
             rearrangeMap[i] = i;
         }
     }
 
-    return nullBasis;
+    return null_basis;
 }
 
 /* ************************************************************************* 
