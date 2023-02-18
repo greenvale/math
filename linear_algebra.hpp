@@ -51,8 +51,8 @@ public:
     double&         operator[](const std::vector<unsigned int>& sub);
     
     // customised uniform operation for all elements given individual function
-    void operation(const std::function<double()>& func);
-    void operation(const std::function<double(double)>& func);
+    void uniform_lambda(const std::function<double()>& func);
+    void uniform_lambda(const std::function<double(double)>& func);
 
     // basic matrix manipulation
     void display() const;
@@ -382,8 +382,8 @@ double& Matrix::operator[](const std::vector<unsigned int>& sub)
     return this->m_data[this->ind(sub[0], sub[1])];
 }
 
-/* customised uniform operation for all elements given individual function */
-void Matrix::operation(const std::function<double()>& func)
+/* customised uniform operation lambda expression for all elements given individual function */
+void Matrix::uniform_lambda(const std::function<double()>& func)
 {
     for (int i = 0; i < this->m_num_elems; ++i)
     {
@@ -391,8 +391,8 @@ void Matrix::operation(const std::function<double()>& func)
     }
 }
 
-/* customised uniform operation for all elements given individual function with 1 parameter (normally element value) */
-void Matrix::operation(const std::function<double(double)>& func)
+/* customised uniform operation lambda expression for all elements given individual function with 1 parameter (normally element value) */
+void Matrix::uniform_lambda(const std::function<double(double)>& func)
 {
     for (int i = 0; i < this->m_num_elems; ++i)
     {
