@@ -37,20 +37,20 @@ public:
     ~matrix(); // dtor
 
     // operator overloading
-    matrix&         operator=(const matrix& rh); // copy assignment operator
-    matrix&         operator=(matrix&& rh); // move assignment operator
+           matrix&  operator=(const matrix& rh); // copy assignment operator
+           matrix&  operator=(matrix&& rh); // move assignment operator
     friend bool     operator==(const matrix& lh, const matrix& rh);
     friend matrix   operator+(const matrix& lh, const matrix& rh);
-    void            operator+=(const matrix& rh);
+           void     operator+=(const matrix& rh);
     friend matrix   operator-(const matrix& lh, const matrix& rh);
-    void            operator-=(const matrix& rh);
+           void     operator-=(const matrix& rh);
     friend matrix   operator*(const matrix& lh, const matrix& rh);
     friend matrix   operator*(const double& lh, const matrix& rh);
     friend matrix   operator*(const matrix& lh, const double& rh);
-    void            operator*=(const double& rh);
+           void     operator*=(const double& rh);
     friend matrix   operator/(const matrix& lh, const double& rh);
-    void            operator/=(const double& rh);
-    double&         operator[](const std::pair<size_t,size_t>& sub);
+           void     operator/=(const double& rh);
+           double&  operator[](const std::pair<size_t,size_t>& sub);
     
     // customised uniform operation for all elements given individual function
     void lambda(const std::function<double()>& func);
@@ -73,6 +73,7 @@ public:
     bool is_empty() const;
     bool is_square() const;
     bool is_symmetric() const;
+    std::vector<std::vector<double>> to_vector() const;
 
     // matrix instance types
     static matrix identity(const size_t& size);
@@ -86,6 +87,7 @@ public:
     void scale_row(const size_t& r, const double& a);
     void axpy_row(const size_t& rx, const size_t& ry, const double& a);
     size_t leading_entry_col(const size_t& r) const;
+    void sink_zero_rows();
     std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> row_reduced_echelon_form() const;
     static matrix solve_GJ(const matrix& A, const matrix& b);
     matrix inverse_GJ() const;
@@ -571,6 +573,9 @@ bool matrix::is_symmetric() const
     return true;
 }
 
+/* returns vector form of matrix */
+
+
 /* ************************************************************************* 
 Common matrix types */
 
@@ -622,9 +627,10 @@ Gauss-Jordan elimination */
 /* swap two rows */
 void matrix::swap_rows(const size_t& r0, const size_t& r1) 
 {
+    double tmp;
     for (size_t i = 0; i < m_size.second; ++i)
     {
-        double tmp = m_data[ind(r0, i)];
+        tmp = m_data[ind(r0, i)];
         m_data[ind(r0, i)] = m_data[ind(r1, i)];
         m_data[ind(r1, i)] = tmp;
     }
@@ -633,9 +639,10 @@ void matrix::swap_rows(const size_t& r0, const size_t& r1)
 /* swap two cols */
 void matrix::swap_cols(const size_t& c0, const size_t& c1) 
 {
+    double tmp;
     for (size_t i = 0; i < m_size.first; ++i)
     {
-        double tmp = m_data[ind(i, c0)];
+        tmp = m_data[ind(i, c0)];
         m_data[ind(i, c0)] = m_data[ind(i, c1)];
         m_data[ind(i, c1)] = tmp;
     }
@@ -645,43 +652,74 @@ void matrix::swap_cols(const size_t& c0, const size_t& c1)
 void matrix::scale_row(const size_t& r, const double& a)
 {
     for (size_t i = 0; i < m_size.second; ++i)
-    {
-        if (m_data[ind(r, i)] != 0.0)
-        {
-            m_data[ind(r, i)] *= a;
-        }
-    }
+        m_data[ind(r, i)] *= a;
 }
 
 /* row axpy */
 void matrix::axpy_row(const size_t& ry, const size_t& rx, const double& a)
 {
     for (size_t i = 0; i < m_size.second; ++i)
-    {
         m_data[ind(ry, i)] += a * m_data[ind(rx, i)];
-    }
 }
 
 /* get leading entry col for a given row index */
 size_t matrix::leading_entry_col(const size_t& r) const
 {
     for (size_t i = 0; i < m_size.second; ++i)
-    {
         if (m_data[ind(r, i)] != 0.0)
             return i;
-    }
     return m_size.second;
 }
 
-/* gauss-jordan elimination to get row-reduced echelon form 
-    returns tuple of reduced matrix, pivot indexes and type of solution available
-    firstly moves all zero rows to the bottom of the matrix
-    then locates pivots by iterating through cols and identifying the first row with a non-zero element then bringing this to the highest possible row
-    below the previous pivot's row
-    then making sure all elements in the target col below this element are zero using axpy operation
-    then all elements above each pivot are eliminated by iterating across the columns in the reverse direction
+/* send all zero rows to bottom of matrix */
+void matrix::sink_zero_rows()
+{
+    size_t zero_targ = m_size.first - 1;
+    for (size_t i = 0; i < m_size.first; ++i)
+    {
+        if (i >= zero_targ)
+            break;
+        
+        bool zero1 = true;
+        for (size_t j = 0; j < m_size.second; ++j)
+            if (m_data[ind(i, j)] != 0.0)
+            {
+                zero1 = false;
+                break;
+            }
+        if (zero1 == true && zero_targ > i)
+        {
+            // adjust zero targ if the row to be swapped with is also a zero row
+            while (zero_targ > i)
+            {
+                bool zero2 = true;
+                for (size_t j = 0; j < m_size.second; ++j)
+                    if (m_data[ind(zero_targ, j)] != 0.0)
+                    {
+                        zero2 = false;
+                        break;
+                    }
+                if (zero2 == true)
+                    zero_targ--;
+                else
+                    break;
+            }
+            swap_rows(i, zero_targ);
+            zero_targ--;
+        }
+    }
+}
 
-    returns tuple containing the row-reduced echelon form matrix, the pivot location indexes and an enum:
+/* gauss-jordan elimination to get row-reduced echelon form 
+    - returns:  tuple of reduced matrix, pivot subs and type of solution available
+    
+    - summary of function:
+        1. moves rows with all zeros to bottom of matrix
+        2. identify first column that isn't all zeros and bring first leading row in this column to top
+        3. perform echelon algorithm
+        4. identify type of solution available assuming if matrix is in augmented form
+
+    - type of solution available is returned as enum:
         0 = inconsistent system
         1 = unique solution available
         2 = infinite solutions
@@ -691,27 +729,8 @@ std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> matrix::row_re
     size_t solutionType = 1;
     matrix mat(*this);
 
-    // get indexes of zero rows
-    std::vector<size_t> zeroRowArr = {};
-    for (size_t i = 0; i < mat.m_size.first; ++i)
-    {
-        bool zero = true;
-        for (size_t j = 0; j < mat.m_size.second; ++j)
-        {
-            if (mat.m_data[mat.ind(i, j)] != 0.0)
-                zero = false;
-        }
-        if (zero == true)
-            zeroRowArr.push_back(i);
-    }
-
-    // swap out each row index with bottom rows to make sure all zero rows are on the bottom
-    size_t zeroTargetRow = mat.m_size.first - 1;
-    for (size_t i = 0; i < zeroRowArr.size(); ++i)
-    {
-        mat.swap_rows(zeroRowArr[i], zeroTargetRow);
-        zeroTargetRow--;
-    }
+    // send all rows to bottom of matrix
+    sink_zero_rows();
 
     // locate pivots
     // loop down each row for each col to locate pivots and place them at the top most 'target row', which increments each time a pivot is found
@@ -819,7 +838,7 @@ matrix matrix::inverse_GJ() const
 /* finds the null space of a matrix and returns its basis vectors 
     - obtains the row reduced form
     - then rearranges columns (and thus variables) to get it in the form
-    { { I_[r * r] , C_[r * (k-r)] }, { 0_[(n-r) * r], 0_[(n-r) * (k-r)] } }
+    { { I_[r * r] , C_[r * (k-r)] }, { 0_[(n-r) * r] , 0_[(n-r) * (k-r)] } }
         with dimension [n * k]
         where:
             -> r is the rank of this matrix
