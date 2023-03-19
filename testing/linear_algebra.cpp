@@ -22,16 +22,19 @@ int main()
 
     gv::matrix mat0 = {{3,3}, 0.0};
 
-    //mat3.insert_rows(0, {{1,6},0.0});
-    mat3.insert_rows(0, {{1,6},0.0});
-    mat3.insert_rows(3, {{1,6},0.0});
-    
-    mat3.print();
+    gv::matrix zero({1,6},0.0);
 
+    mat3.insert_rows(0, {{1,6}, 0});
+    mat3.insert_rows(0, {{1,6}, 0});
+    mat3.insert_rows(3, {{1,6}, 0});
+    mat3.insert_rows(3, {{1,6}, 1});
+    mat3.insert_rows(3, {{1,6}, 2});
+    mat3.insert_rows(6, {{1,6}, 0});
+
+    mat3.print();
     std::cout << "\n\n";
-
-    //mat3.sink_zero_rows();
+    
+    mat3.sink_zero_rows();
 
     mat3.print();
-
 }
