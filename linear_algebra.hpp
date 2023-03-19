@@ -1,5 +1,5 @@
-/* Linear Algebra library by William Denny (greenvale)
-- Matrix class is higher-performance than v1
+/* Linear Algebra
+William Denny
 */
 #pragma once
 
@@ -9,226 +9,202 @@
 #include <functional>
 #include <map>
 #include <tuple>
+#include <iomanip>
+#include <string>
+#include <cstring>
 
-namespace mathlib
+namespace gv
 {
 
 /* **************************************************************************************************
     MATRIX
 ************************************************************************************************** */
 
-class Matrix
+class matrix
 {
 private:
-    std::vector<unsigned int> m_size;
-    unsigned int m_num_elems;
+    std::pair<size_t,size_t> m_size;
+    size_t m_num_elems;
     double* m_data;
 
 public:
-    Matrix();
-    Matrix(const std::vector<unsigned int>& size);
-    Matrix(const std::vector<unsigned int>& size, const double& val);
-    Matrix(const std::vector<unsigned int>& size, const std::vector<std::vector<double>>& mat); // accepts input matrix in vector-vector form
-    Matrix(const Matrix& rh); // copy ctor
-    Matrix(Matrix&& rh); // move ctor
-    ~Matrix(); // dtor
+    matrix();
+    matrix(const std::pair<size_t,size_t>& size);
+    matrix(const std::pair<size_t,size_t>& size, const double& val);
+    matrix(const std::pair<size_t,size_t>& size, const std::vector<std::vector<double>>& data);
+    matrix(const matrix& rh); // copy ctor
+    matrix(matrix&& rh); // move ctor
+    ~matrix(); // dtor
 
     // operator overloading
-    Matrix&         operator=(const Matrix& rh); // copy assignment operator
-    Matrix&         operator=(Matrix&& rh); // move assignment operator
-    friend bool     operator==(const Matrix& lh, const Matrix& rh);
-    friend Matrix   operator+(const Matrix& lh, const Matrix& rh);
-    void            operator+=(const Matrix& rh);
-    friend Matrix   operator-(const Matrix& lh, const Matrix& rh);
-    void            operator-=(const Matrix& rh);
-    friend Matrix   operator*(const Matrix& lh, const Matrix& rh);
-    friend Matrix   operator*(const double& lh, const Matrix& rh);
-    friend Matrix   operator*(const Matrix& lh, const double& rh);
-    void            operator*=(const Matrix& rh);
+    matrix&         operator=(const matrix& rh); // copy assignment operator
+    matrix&         operator=(matrix&& rh); // move assignment operator
+    friend bool     operator==(const matrix& lh, const matrix& rh);
+    friend matrix   operator+(const matrix& lh, const matrix& rh);
+    void            operator+=(const matrix& rh);
+    friend matrix   operator-(const matrix& lh, const matrix& rh);
+    void            operator-=(const matrix& rh);
+    friend matrix   operator*(const matrix& lh, const matrix& rh);
+    friend matrix   operator*(const double& lh, const matrix& rh);
+    friend matrix   operator*(const matrix& lh, const double& rh);
     void            operator*=(const double& rh);
-    friend Matrix   operator/(const Matrix& lh, const double& rh);
+    friend matrix   operator/(const matrix& lh, const double& rh);
     void            operator/=(const double& rh);
-    double&         operator[](const std::vector<unsigned int>& sub);
+    double&         operator[](const std::pair<size_t,size_t>& sub);
     
     // customised uniform operation for all elements given individual function
-    void uniform_lambda(const std::function<double()>& func);
-    void uniform_lambda(const std::function<double(double)>& func);
+    void lambda(const std::function<double()>& func);
+    void lambda(const std::function<double(double)>& func);
+    void lambda(const std::function<double(size_t,size_t)>& func);
 
     // basic matrix manipulation
-    void display() const;
-    std::vector<unsigned int> size() const;
-    unsigned int ind(const unsigned int& r, const unsigned int& c) const;
-    double get(const std::vector<unsigned int>& sub) const;
-    void set(const std::vector<unsigned int>& sub, const double& val);
-    Matrix get_region(const std::vector<unsigned int>& sub, const std::vector<unsigned int>& size) const;
-    void set_region(const std::vector<unsigned int>& sub, const Matrix& mat);
-    void insert_rows(const unsigned int& row, const Matrix& mat);
-    void insert_cols(const unsigned int& col, const Matrix& mat);
-    void remove_rows(const unsigned int& row, const unsigned int& num_rows);
-    void remove_cols(const unsigned int& col, const unsigned int& num_cols);
-    Matrix resize(const unsigned int& num_rows, const unsigned int& num_cols);
-    Matrix transpose();
-    bool is_empty();
-    bool is_square();
-    bool is_symmetric();
+    void print() const;
+    std::pair<size_t,size_t> size() const;
+    size_t ind(const size_t& r, const size_t& c) const;
+    double scal() const;
+    matrix get_region(const std::pair<size_t,size_t>& sub, const std::pair<size_t,size_t>& size) const;
+    void set_region(const std::pair<size_t,size_t>& sub, const matrix& mat);
+    void insert_rows(const size_t& r, const matrix& mat);
+    void insert_cols(const size_t& c, const matrix& mat);
+    void remove_rows(const size_t& r, const size_t& n);
+    void remove_cols(const size_t& c, const size_t& n);
+    matrix resize(const size_t& nrows, const size_t& ncols) const;
+    matrix transpose() const;
+    bool is_empty() const;
+    bool is_square() const;
+    bool is_symmetric() const;
 
     // matrix instance types
-    static Matrix identity(const unsigned int& size);
-    static Matrix diag(const Matrix& vals);
-    static Matrix empty();
+    static matrix identity(const size_t& size);
+    static matrix diag(const matrix& vals);
+    static matrix empty();
+    static matrix from_vector(const std::vector<double>& vec);
 
     // Gauss-Jordan elimination
-    void swap_rows(const unsigned int& r0, const unsigned int& r1);
-    void swap_cols(const unsigned int& c0, const unsigned int& c1);
-    void scale_row(const unsigned int& r, const double& a);
-    void axpy_row(const unsigned int& rx, const unsigned int& ry, const double& a);
-    unsigned int leading_entry_col(const unsigned int& r);
-    std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> row_reduced_echelon_form();
-    static Matrix solve_GJ(const Matrix& A, const Matrix& b);
-    Matrix inverse_GJ();
-    Matrix null_basis();
+    void swap_rows(const size_t& r0, const size_t& r1);
+    void swap_cols(const size_t& c0, const size_t& c1);
+    void scale_row(const size_t& r, const double& a);
+    void axpy_row(const size_t& rx, const size_t& ry, const double& a);
+    size_t leading_entry_col(const size_t& r) const;
+    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> row_reduced_echelon_form() const;
+    static matrix solve_GJ(const matrix& A, const matrix& b);
+    matrix inverse_GJ() const;
+    matrix null_basis() const;
 
     // determinants
-    Matrix minor(const unsigned int& r, const unsigned int& c);
-    double determinant();
+    matrix minor(const size_t& r, const size_t& c) const;
+    double determinant() const;
 
 };
 
+/* ************************************************************************* */
+
 /* default ctor */
-Matrix::Matrix() 
+matrix::matrix() 
 {
-    //std::cout << "Default ctor" << std::endl;
-    this->m_size = {0, 0};
-    this->m_num_elems = 0;
-    this->m_data = nullptr;
+    m_size = {0, 0};
+    m_num_elems = 0;
+    m_data = nullptr;
 }
 
-/* ctor - uninitialised matrix with given size */ 
-Matrix::Matrix(const std::vector<unsigned int>& size)
+/* ctor */
+matrix::matrix(const std::pair<size_t,size_t>& size)
 {
-    //std::cout << "Ctor 1" << std::endl;
-    assert(size.size() == 2); // ensure size has correct form
-    this->m_size = size;
-    this->m_num_elems = size[0] * size[1];
-    this->m_data = new double[this->m_num_elems];//std::vector<double>(size[0] * size[1]);
+    m_size = size;
+    m_num_elems = size.first * size.second;
+    m_data = new double[m_num_elems];
 }
 
-/* */ 
-Matrix::Matrix(const std::vector<unsigned int>& size, const double& val)
+/* ctor for matrix of given size with constant value */ 
+matrix::matrix(const std::pair<size_t,size_t>& size, const double& val)
 {
-    //std::cout << "Ctor 2" << std::endl;
-    assert(size.size() == 2); // ensure size has correct form
-    this->m_size = size;
-    this->m_num_elems = size[0] * size[1];
-    this->m_data = new double[this->m_num_elems]; // std::vector<double>(size[0] * size[1], val);
-    for (int i = 0; i < this->m_num_elems; ++i)
+    m_size = size;
+    m_num_elems = size.first * size.second;
+    m_data = new double[m_num_elems];
+
+    for (size_t i = 0; i < m_num_elems; ++i)
+        m_data[i] = val;
+}
+
+/* ctor with nested vector matrix form */ 
+matrix::matrix(const std::pair<size_t,size_t>& size, const std::vector<std::vector<double>>& data)
+{
+    assert(data.size() == size.first);
+    m_size = size;
+    m_num_elems = m_size.first * m_size.second;
+    m_data = new double[m_num_elems];
+
+    for (size_t i = 0; i < m_size.first; ++i)
     {
-        this->m_data[i] = val;
-    }
-}
-
-/* ctor accepting matrix argument in vector-vector form */ 
-Matrix::Matrix(const std::vector<unsigned int>& size, const std::vector<std::vector<double>>& mat)
-{
-    //std::cout << "Ctor 3" << std::endl;
-    assert(size.size() == 2); // ensure size has correct form
-    assert(size[0] == mat.size()); // ensure mat num rows is consistent with size
-    this->m_size = size;
-    this->m_num_elems = size[0] * size[1];
-    this->m_data = new double[this->m_num_elems]; //std::vector<double>(size[0] * size[1]);
-    for (unsigned int i = 0; i < this->m_size[0]; ++i) // loop through rows
-    {
-        assert(mat[i].size() == size[1]); // ensure num cols is consistent for each row
-        for (unsigned int j = 0; j < this->m_size[1]; ++j) // loop through cols
-        {
-            this->m_data[this->ind(i, j)] = mat[i][j];
-        }
+        assert(data[i].size() == size.second);
+        for (size_t j = 0; j < m_size.second; ++j)
+            m_data[ind(i, j)] = data[i][j];
     }
 }
 
 /* copy ctor */
-Matrix::Matrix(const Matrix& rh)
+matrix::matrix(const matrix& rh)
 {
-    //std::cout << "Copy ctor" << std::endl;
-    this->m_size = rh.m_size;
-    this->m_num_elems = rh.m_num_elems;
-    this->m_data = new double[this->m_num_elems];
-    for (int i = 0; i < this->m_num_elems; ++i)
-    {
-        this->m_data[i] = rh.m_data[i];
-    }
+    m_size = rh.m_size;
+    m_num_elems = rh.m_num_elems;
+    m_data = new double[m_num_elems];
+    std::memcpy(m_data, rh.m_data, m_num_elems*sizeof(double));
 }
 
 /* move ctor (takes temporary rvalue) */
-Matrix::Matrix(Matrix&& rh)
+matrix::matrix(matrix&& rh)
 {
-    //std::cout << "Move ctor" << std::endl;
-    this->m_size = rh.m_size;
-    this->m_num_elems = rh.m_num_elems;
-    this->m_data = rh.m_data;
+    m_size = rh.m_size;
+    m_num_elems = rh.m_num_elems;
+    m_data = rh.m_data;
     rh.m_size = {};
     rh.m_num_elems = 0;
     rh.m_data = nullptr;
 }
 
 /* dtor */
-Matrix::~Matrix()
+matrix::~matrix()
 {
-    //std::cout << "Dtor" << std::endl;
-    delete[] this->m_data;
+    delete[] m_data;
 }
 
 /* ************************************************************************* 
 Operator overloading */
 
 /* copy assignment operator for lvalue */
-Matrix& Matrix::operator=(const Matrix& rh)
+matrix& matrix::operator=(const matrix& rh)
 {
-    //std::cout << "copy assignment operator" << std::endl;
-
     // prevent self-assignment
     if (this == &rh)
-    {
         return *this;
-    }
 
     // if size is not the same, change the size and array size
-    if (this->m_size != rh.m_size)
+    if (m_size != rh.m_size)
     {
-        if (this->m_data != nullptr)
-        {
-            delete[] this->m_data;
-        }
-        this->m_size = {};
-        this->m_num_elems = 0;
-        this->m_data = new double[this->m_num_elems];
-        this->m_size = rh.m_size;
-        this->m_num_elems = rh.m_num_elems;
+        if (m_data != nullptr)
+            delete[] m_data;
+
+        m_size = rh.m_size;
+        m_num_elems = rh.m_num_elems;
+        m_data = new double[m_num_elems];
     }
 
     // copy values
-    for (int i = 0; i < this->m_num_elems; ++i)
-    {
-        this->m_data[i] = rh.m_data[i];
-    }
+    std::memcpy(m_data, rh.m_data, m_num_elems*sizeof(double));
     
     return *this;
 }
 
 /* move assignment operator for rvalue */
-Matrix& Matrix::operator=(Matrix&& rh)
+matrix& matrix::operator=(matrix&& rh)
 {
-    //std::cout << "move assignment operator" << std::endl;
-
     // prevent self-assignment
     if (this == &rh)
-    {
         return *this;
-    }
 
-    this->m_size = rh.m_size;
-    this->m_num_elems = rh.m_num_elems;
-    this->m_data = rh.m_data;
+    m_size = rh.m_size;
+    m_num_elems = rh.m_num_elems;
+    m_data = rh.m_data;
     rh.m_size = {};
     rh.m_num_elems = 0;
     rh.m_data = nullptr;
@@ -237,495 +213,406 @@ Matrix& Matrix::operator=(Matrix&& rh)
 }
 
 /* comparison operator */
-bool operator==(const Matrix& lh, const Matrix& rh)
+bool operator==(const matrix& lh, const matrix& rh)
 {
-    return ((lh.m_size == rh.m_size) && (lh.m_data == rh.m_data));
+    if (lh.m_size != rh.m_size)
+        return false;
+    for (size_t i = 0; i < lh.m_num_elems; ++i)
+        if (lh.m_data[i] != rh.m_data[i])
+            return false;
+    return true;
 }
 
 /* matrix + matrix */
-Matrix operator+(const Matrix& lh, const Matrix& rh)
+matrix operator+(const matrix& lh, const matrix& rh)
 {
-    //std::cout << "+ operator" << std::endl;
     assert(lh.m_size == rh.m_size);
-    Matrix result(lh.m_size);
-    for (unsigned int i = 0; i < result.m_num_elems; ++i) // loop through elements
-    {
+    matrix result(lh.m_size);
+    for (size_t i = 0; i < result.m_num_elems; ++i)
         result.m_data[i] = lh.m_data[i] + rh.m_data[i];    
-    }
     return result;
 }
 
 /* */
-void Matrix::operator+=(const Matrix& rh)
+void matrix::operator+=(const matrix& rh)
 {
-    assert(this->m_size == rh.m_size); 
-    for (unsigned int i = 0; i < this->m_size[0]; ++i)
-    {
-        for (unsigned int j = 0; j < this->m_size[1]; ++j)
-        {
-            this->m_data[this->ind(i, j)] += rh.m_data[rh.ind(i, j)];
-        }
-    }
+    assert(m_size == rh.m_size); 
+    for (size_t i = 0; i < m_size.first; ++i)
+        for (size_t j = 0; j < m_size.second; ++j)
+            m_data[ind(i, j)] += rh.m_data[ind(i, j)];
 }
 
 /* matrix - matrix */
-Matrix operator-(const Matrix& lh, const Matrix& rh)
+matrix operator-(const matrix& lh, const matrix& rh)
 {
     assert(lh.m_size == rh.m_size);
-    Matrix result(lh.m_size);
-    for (unsigned int i = 0; i < lh.m_num_elems; ++i) // loop through elements
-    {
+    matrix result(lh.m_size);
+    for (size_t i = 0; i < lh.m_num_elems; ++i)
         result.m_data[i] = lh.m_data[i] - rh.m_data[i];    
-    }
     return result;
 }
 
 /* */
-void Matrix::operator-=(const Matrix& rh)
+void matrix::operator-=(const matrix& rh)
 {
-    assert(this->m_size == rh.m_size); 
-    for (unsigned int i = 0; i < this->m_size[0]; ++i)
-    {
-        for (unsigned int j = 0; j < this->m_size[1]; ++j)
-        {
-            this->m_data[this->ind(i, j)] -= rh.m_data[rh.ind(i, j)];
-        }
-    }
+    assert(m_size == rh.m_size); 
+    for (size_t i = 0; i < m_size.first; ++i)
+        for (size_t j = 0; j < m_size.second; ++j)
+            m_data[ind(i, j)] -= rh.m_data[ind(i, j)];
 }
 
 /* matrix * matrix */
-Matrix operator*(const Matrix& lh, const Matrix& rh)
+matrix operator*(const matrix& lh, const matrix& rh)
 {
-    assert(lh.m_size[1] == rh.m_size[0]); // num cols for lh must equate num rows for rh
-    Matrix result({lh.m_size[0], rh.m_size[1]}, 0.0); // result size is (num rows for lh, num cols for rh)
-    for (unsigned int i = 0; i < lh.m_size[0]; ++i) // loop through rows in lh
-    {
-        for (unsigned int j = 0; j < rh.m_size[1]; ++j) // loop through cols in rh
-        {
-            for (unsigned int k = 0; k < lh.m_size[1]; ++k) // for element (i, j) take dot product of row i in lh and col j in rh
-            {
+    assert(lh.m_size.second == rh.m_size.first); // num cols for lh must equate num rows for rh
+    matrix result({lh.m_size.first, rh.m_size.second}, 0.0); // result size is (num rows for lh, num cols for rh)
+    
+    for (size_t i = 0; i < lh.m_size.first; ++i) // loop through rows in lh
+        for (size_t j = 0; j < rh.m_size.second; ++j) // loop through cols in rh
+            for (size_t k = 0; k < lh.m_size.second; ++k) // for element (i, j) take dot product of row i in lh and col j in rh
                 result.m_data[result.ind(i, j)] += lh.m_data[lh.ind(i, k)] * rh.m_data[rh.ind(k, j)];
-            }
-        }
-    }
+
     return result;
 }
 
 /* scalar * matrix */
-Matrix operator*(const double& lh, const Matrix& rh)
+matrix operator*(const double& lh, const matrix& rh)
 {
-    Matrix result = rh;
-    for (unsigned int i = 0; i < rh.m_num_elems; ++i)
-    {
+    matrix result = rh;
+    for (size_t i = 0; i < rh.m_num_elems; ++i)
         result.m_data[i] *= lh;
-    }
     return result;
 }
 
 /* matrix * scalar */
-Matrix operator*(const Matrix& lh, const double& rh)
+matrix operator*(const matrix& lh, const double& rh)
 {
-    Matrix result = lh;
-    for (unsigned int i = 0; i < lh.m_num_elems; ++i)
-    {
+    matrix result = lh;
+    for (size_t i = 0; i < lh.m_num_elems; ++i)
         result.m_data[i] *= rh;
-    }
     return result;
 }
 
 /* */
-void Matrix::operator*=(const Matrix& rh)
+void matrix::operator*=(const double& rh)
 {
-    Matrix result = (*this) * rh;
-    (*this) = result;
-}
-
-/* */
-void Matrix::operator*=(const double& rh)
-{
-    for (unsigned int i = 0; i < this->m_size[0]; ++i)
-    {
-        for (unsigned int j = 0; j < this->m_size[1]; ++j)
-        {
-            this->m_data[this->ind(i, j)] *= rh;
-        }
-    }
+    for (size_t i = 0; i < m_num_elems; ++i)
+        m_data[i] *= rh;
 }
 
 /* matrix / scalar */
-Matrix operator/(const Matrix& lh, const double& rh)
+matrix operator/(const matrix& lh, const double& rh)
 {
-    Matrix result = lh;
-    for (unsigned int i = 0; i < lh.m_num_elems; ++i)
-    {
+    matrix result = lh;
+    for (size_t i = 0; i < lh.m_num_elems; ++i)
         result.m_data[i] /= rh;
-    }
     return result;
 }
 
 /* */
-void Matrix::operator/=(const double& rh)
+void matrix::operator/=(const double& rh)
 {
-    for (unsigned int i = 0; i < this->m_size[0]; ++i)
-    {
-        for (unsigned int j = 0; j < this->m_size[1]; ++j)
-        {
-            this->m_data[this->ind(i, j)] /= rh;
-        }
-    }
+    for (size_t i = 0; i < m_num_elems; ++i)
+        m_data[i] /= rh;
 }
 
 /* */
-double& Matrix::operator[](const std::vector<unsigned int>& sub)
+double& matrix::operator[](const std::pair<size_t,size_t>& sub)
 {
-    assert(sub.size() == 2);
-    return this->m_data[this->ind(sub[0], sub[1])];
+    return m_data[ind(sub.first, sub.second)];
 }
 
-/* customised uniform operation lambda expression for all elements given individual function */
-void Matrix::uniform_lambda(const std::function<double()>& func)
+/* lambda operation for all values in matrix taking no params */
+void matrix::lambda(const std::function<double()>& func)
 {
-    for (int i = 0; i < this->m_num_elems; ++i)
-    {
-        this->m_data[i] = func();
-    }
+    for (size_t i = 0; i < m_num_elems; ++i)
+        m_data[i] = func();
 }
 
-/* customised uniform operation lambda expression for all elements given individual function with 1 parameter (normally element value) */
-void Matrix::uniform_lambda(const std::function<double(double)>& func)
+/* lambda operation for all values in matrix taking value as param */
+void matrix::lambda(const std::function<double(double)>& func)
 {
-    for (int i = 0; i < this->m_num_elems; ++i)
-    {
-        this->m_data[i] = func(this->m_data[i]);
-    }
+    for (size_t i = 0; i < m_num_elems; ++i)
+        m_data[i] = func(m_data[i]);
+}
+
+/* lambda operation for all values in matrix taking sub as param */
+void matrix::lambda(const std::function<double(size_t, size_t)>& func)
+{
+    for (size_t i = 0; i < m_size.first; ++i)
+        for (size_t j = 0; j < m_size.second; ++j)
+            m_data[ind(i, j)] = func(i, j);
 }
 
 /* ************************************************************************* 
 Matrix manipulation */
 
-void Matrix::display() const
+void matrix::print() const
 {
-    for (unsigned int i = 0; i < this->m_size[0]; ++i) // loop through rows
+    for (size_t i = 0; i < m_size.first; ++i)
     {
-        for (unsigned int j = 0; j < this->m_size[1]; ++j) // loop through cols
+        for (size_t j = 0; j < m_size.second; ++j)
         {
-            std::cout << this->m_data[this->ind(i, j)] << "\t";
+            std::cout.width(10);
+            std::cout.precision(3);
+            std::cout << m_data[ind(i, j)] << "\t";
         }
         std::cout << "\n";
     }
 }
 
-/* returns index in valArr of element at position (r, c) - in row-ordered matrix storage */
-unsigned int Matrix::ind(const unsigned int& r, const unsigned int& c) const
-{
-    assert((r < this->m_size[0]) && (c < this->m_size[1]));
-    return r * this->m_size[1] + c;
-}
-
 /* returns size of matrix */
-std::vector<unsigned int> Matrix::size() const
+std::pair<size_t,size_t> matrix::size() const
 {
-    return this->m_size;
+    return m_size;
 }
 
-/* returns element at sub */
-double Matrix::get(const std::vector<unsigned int>& sub) const
+/* returns index in valArr of element at position (r, c) - in row-ordered matrix storage */
+size_t matrix::ind(const size_t& r, const size_t& c) const
 {
-    //assert((sub.size() == 2) && (sub[0] < this->m_size[0]) && (sub[1] < this->m_size[1])); // ensure sub has correct form
-    return this->m_data[this->ind(sub[0], sub[1])];
+    assert(r < m_size.first && c < m_size.second);
+    return r * m_size.second + c;
 }
 
-/* sets element at sub */
-void Matrix::set(const std::vector<unsigned int>& sub, const double& val)
+/* returns single value in matrix if the matrix is a scalar (i.e. 1x1 matrix) */
+double matrix::scal() const
 {
-    //assert((sub.size() == 2) && (sub[0] < this->m_size[0]) && (sub[1] < this->m_size[1])); // ensure sub has correct form
-    this->m_data[this->ind(sub[0], sub[1])] = val;
+    assert(m_size.first == 1 && m_size.second == 1);
+    return m_data[0];
 }
 
 /* returns matrix of region starting at sub with given size */
-Matrix Matrix::get_region(const std::vector<unsigned int>& sub, const std::vector<unsigned int>& size) const
+matrix matrix::get_region(const std::pair<size_t,size_t>& sub, const std::pair<size_t,size_t>& size) const
 {
-    Matrix result(size);
-    for (unsigned int i = 0; i < size[0]; ++i)
-    {
-        for (unsigned int j = 0; j < size[1]; ++j)
-        {
-            result.m_data[result.ind(i, j)] = this->m_data[this->ind(sub[0] + i, sub[1] + j)];
-        }
-    }
+    assert(sub.first < m_size.first && sub.second < m_size.second);
+    assert(sub.first + size.first <= m_size.first && sub.second + size.second <= m_size.second);
+    
+    matrix result(size);
+    for (size_t i = 0; i < size.first; ++i)
+        for (size_t j = 0; j < size.second; ++j)
+            result.m_data[result.ind(i, j)] = m_data[ind(sub.first + i, sub.second + j)];
     return result;
 }
 
 /* sets region starting at sub with given size and given matrix */
-void Matrix::set_region(const std::vector<unsigned int>& sub, const Matrix& mat) 
+void matrix::set_region(const std::pair<size_t,size_t>& sub, const matrix& mat) 
 {
-    for (unsigned int i = 0; i < mat.m_size[0]; ++i)
-    {
-        for (unsigned int j = 0; j < mat.m_size[1]; ++j)
-        {
-            this->m_data[this->ind(sub[0] + i, sub[1] + j)] = mat.m_data[mat.ind(i, j)];
-        }
-    }
+    assert(sub.first < m_size.first && sub.second < m_size.second);
+    assert(sub.first + mat.m_size.first <= m_size.first && sub.second + mat.m_size.second <= m_size.second);
+    
+    for (size_t i = 0; i < mat.m_size.first; ++i)
+        for (size_t j = 0; j < mat.m_size.second; ++j)
+            m_data[ind(sub.first + i, sub.second + j)] = mat.m_data[mat.ind(i, j)];
 }
 
 /* insert rows */
-void Matrix::insert_rows(const unsigned int& row, const Matrix& mat)
+void matrix::insert_rows(const size_t& r, const matrix& mat)
 {
-    assert(row <= this->m_size[0]);
-    assert(mat.m_size[1] == this->m_size[1]);
+    assert(r <= m_size.first);
+    assert(mat.m_size.second == m_size.second);
+    assert(mat.m_size.first > 0);
+    
+    // construct new matrix in tmp 
+    double* tmp = new double[m_num_elems + mat.m_num_elems];
+    
+    // copy rows before insertion
+    if (r > 0)
+        std::memcpy(tmp, m_data, r*m_size.second*sizeof(double));
 
-    // copy current array
-    double* tmp = new double[this->m_num_elems];
-    for (unsigned int i = 0; i < this->m_num_elems; ++i)
-    {
-        tmp[i] = this->m_data[i];
-    }
+    // copy inserted rows
+    std::memcpy(tmp + r*m_size.second, mat.m_data,
+        mat.m_num_elems*sizeof(double));
 
-    // increase array size
-    if (this->m_data != nullptr)
+    // copy rows after insertion
+    if (m_size.first - r > 0)
     {
-        delete[] this->m_data;
+        std::memcpy(tmp + (r + mat.m_size.first)*m_size.second, m_data + r*m_size.second,
+            (m_size.first - r)*m_size.second*sizeof(double));
     }
-    std::vector<unsigned int> tmpSize = this->m_size; // copy prev size
-    this->m_size[0] += mat.m_size[0];
-    this->m_num_elems = this->m_size[0] * this->m_size[1];
-    this->m_data = new double[this->m_num_elems];
+    // set new size
+    m_size.first += mat.m_size.first;
 
-    // fill new array with corresponding values
-    for (unsigned int i = 0; i < this->m_size[0]; ++i) // loop through rows
-    {
-        for (unsigned int j = 0; j < this->m_size[1]; ++j) // loop through cols
-        {
-            if (i < row)
-            {
-                this->m_data[this->ind(i, j)] = tmp[i * (tmpSize[1]) + j];
-            }
-            if ((i >= row) && (i < row + mat.m_size[0]))
-            {
-                this->m_data[this->ind(i, j)] = mat.m_data[mat.ind(i - row, j)]; // insert row from mat
-            }
-            else if (i >= row + mat.m_size[0])
-            {
-                this->m_data[this->ind(i, j)] = tmp[(i - mat.m_size[0])*(tmpSize[1]) + j];
-            }
-        }
-    }
-    delete[] tmp;
+    // point array data to tmp
+    delete[] m_data;
+    m_data = tmp;
 }
 
 /* insert cols */
-void Matrix::insert_cols(const unsigned int& col, const Matrix& mat)
+void matrix::insert_cols(const size_t& c, const matrix& mat)
 {
-    assert(col <= this->m_size[1]);
-    assert(mat.m_size[0] == this->m_size[0]);
+    assert(c <= m_size.second);
+    assert(mat.m_size.first == m_size.first);
+    assert(mat.m_size.second > 0);
 
-    // copy current array
-    double* tmp = new double[this->m_num_elems];
-    for (unsigned int i = 0; i < this->m_num_elems; ++i)
-    {
-        tmp[i] = this->m_data[i];
-    }
+    // construct new matrix in tmp
+    double* tmp = new double[m_num_elems + mat.m_num_elems];
 
-    // increase array size
-    if (this->m_data != nullptr)
-    {
-        delete[] this->m_data;
-    }
-    std::vector<unsigned int> tmpSize = this->m_size; // copy prev size
-    this->m_size[1] += mat.m_size[1];
-    this->m_num_elems = this->m_size[0] * this->m_size[1];
-    this->m_data = new double[this->m_num_elems];
+    // copy current col num
+    size_t ncols = m_size.second;
 
-    // fill new array with corresponding values
-    for (unsigned int i = 0; i < this->m_size[0]; ++i) // loop through rows
-    {
-        for (unsigned int j = 0; j < this->m_size[1]; ++j) // loop through cols
-        {
-            if (j < col)
-            {
-                this->m_data[this->ind(i, j)] = tmp[i * (tmpSize[1]) + j];
-            }
-            if ((j >= col) && (j < col + mat.m_size[1]))
-            {
-                this->m_data[this->ind(i, j)] = mat.m_data[mat.ind(i, j - col)]; // insert col from mat
-            }
-            else if (j >= col + mat.m_size[1])
-            {
-                this->m_data[this->ind(i, j)] = tmp[i * (tmpSize[1]) + j - mat.m_size[1]];
-            }
-        }
-    }
-    delete[] tmp;
+    // set new size
+    m_size.second += mat.m_size.second;
+
+    // allocate values in tmp matrix
+    for (size_t i = 0; i < m_size.first; ++i)
+        for (size_t j = 0; j < m_size.second; ++j)
+            if (j < c)
+                tmp[ind(i,j)] = m_data[ncols*i + j];
+            else if (j >= c && j < mat.m_size.second + c)
+                tmp[ind(i,j)] = mat.m_data[mat.ind(i, j - c)];
+            else
+                tmp[ind(i,j)] = m_data[ncols*i + (j - mat.m_size.second)];
+    
+    // point array data to tmp
+    delete[] m_data;
+    m_data = tmp;
 }
 
 /* remove rows */
-void Matrix::remove_rows(const unsigned int& row, const unsigned int& num_rows)
+void matrix::remove_rows(const size_t& r, const size_t& n)
 {
-    assert(row + num_rows <= this->m_size[0]);
-    assert(num_rows > 0);
+    assert(r + n <= m_size.first);
+    assert(n > 0);
 
-    // copy current array
-    double* tmp = new double[this->m_num_elems];
-    for (unsigned int i = 0; i < this->m_num_elems; ++i)
-    {
-        tmp[i] = this->m_data[i];
-    }
+    // construct new matrix in tmp
+    double* tmp = new double[m_num_elems - n*m_size.second];
 
-    // decrease array size
-    if (this->m_data != nullptr)
-    {
-        delete[] this->m_data;
-    }
-    std::vector<unsigned int> tmpSize = this->m_size; // copy prev size
-    this->m_size[0] -= num_rows;
-    this->m_num_elems = this->m_size[0] * this->m_size[1];
-    this->m_data = new double[this->m_num_elems];
+    // copy rows before removal
+    if (r > 0)
+        std::memcpy(tmp, m_data, r*m_size.second*sizeof(double));
 
-    // fill new array with corresponding values
-    for (unsigned int i = 0; i < this->m_size[0]; ++i) // loop through rows
-    {
-        for (unsigned int j = 0; j < this->m_size[1]; ++j) // loop through cols
-        {
-            if (i < row)
-            {
-                this->m_data[this->ind(i, j)] = tmp[i * (tmpSize[1]) + j];
-            }
-            else if (i >= row)
-            {
-                this->m_data[this->ind(i, j)] = tmp[(i + num_rows)*(tmpSize[1]) + j];
-            }
-        }
-    }
-    delete[] tmp;
+    // copy rows after removal
+    if (m_size.first - r - n > 0)
+        std::memcpy(tmp + r*m_size.second, m_data + (r+n)*m_size.second,
+            (m_size.first - r - n)*m_size.second*sizeof(double));
+
+    // set new size
+    m_size.first -= n;
+
+    // point array data to tmp
+    delete[] m_data;
+    m_data = tmp;
 }
 
 /* remove cols */
-void Matrix::remove_cols(const unsigned int& col, const unsigned int& num_cols)
+void matrix::remove_cols(const size_t& c, const size_t& n)
 {
-    assert(col + num_cols <= this->m_size[1]);
-    assert(num_cols > 0);
+    assert(c + n <= m_size.second);
+    assert(n > 0);
 
-    // copy current array
-    double* tmp = new double[this->m_num_elems];
-    for (unsigned int i = 0; i < this->m_num_elems; ++i)
-    {
-        tmp[i] = this->m_data[i];
-    }
+    // construct new matrix in tmp
+    double* tmp = new double[m_num_elems - n*m_size.first];
 
-    // decrease array size
-    if (this->m_data != nullptr)
-    {
-        delete[] this->m_data;
-    }
-    std::vector<unsigned int> tmpSize = this->m_size; // copy prev size
-    this->m_size[1] -= num_cols;
-    this->m_num_elems = this->m_size[0] * this->m_size[1];
-    this->m_data = new double[this->m_num_elems];
+    // copy current col num
+    size_t ncols = m_size.second;
 
-    // fill new array with corresponding values
-    for (unsigned int i = 0; i < this->m_size[0]; ++i) // loop through rows
-    {
-        for (unsigned int j = 0; j < this->m_size[1]; ++j) // loop through cols
-        {
-            if (j < col)
-            {
-                this->m_data[this->ind(i, j)] = tmp[i * (tmpSize[1]) + j];
-            }
-            else if (j >= col)
-            {
-                this->m_data[this->ind(i, j)] = tmp[i * (tmpSize[1]) + j + num_cols];
-            }
-        }
-    }
-    delete[] tmp;
+    // set new size
+    m_size.second -= n;
+
+    // allocate values in tmp matrix
+    for (size_t i = 0; i < m_size.first; ++i)
+        for (size_t j = 0; j < m_size.second; ++j)
+            if (j < c)
+                tmp[ind(i,j)] = m_data[ncols*i + j];
+            else
+                tmp[ind(i,j)] = m_data[ncols*i + j + n];
+
+    // point array data to tmp
+    delete[] m_data;
+    m_data = tmp;
 }
 
 /* returns resized matrix */
-Matrix Matrix::resize(const unsigned int& num_rows, const unsigned int& num_cols)
+matrix matrix::resize(const size_t& nrows, const size_t& ncols) const
 {
-    assert(num_rows * num_cols == this->m_num_elems);
-    Matrix result = *this;
-    result.m_size[0] = num_rows;
-    result.m_size[1] = num_cols;
+    assert(nrows * ncols == m_num_elems);
+
+    matrix result = *this;
+    result.m_size.first = nrows;
+    result.m_size.second = ncols;
     return result;
 }
 
 /* returns transpose of matrix */
-Matrix Matrix::transpose()
+matrix matrix::transpose() const
 {
-    Matrix result({this->m_size[1], this->m_size[0]});
-    for (unsigned int i = 0; i < this->m_size[0]; ++i)
-    {
-        for (unsigned int j = 0; j < this->m_size[1]; ++j)
-        {
-            result.m_data[result.ind(j, i)] = this->m_data[this->ind(i, j)];
-        }
-    }
+    matrix result({m_size.second, m_size.first});
+
+    for (size_t i = 0; i < m_size.first; ++i)
+        for (size_t j = 0; j < m_size.second; ++j)
+            result.m_data[result.ind(j, i)] = m_data[ind(i, j)];
+    
     return result;
 }
 
 /* checks if matrix is empty */
-bool Matrix::is_empty() 
+bool matrix::is_empty() const
 {
-    return ((this->m_size[0] == 0) && (this->m_size[1] == 0) && (this->m_num_elems == 0) && (this->m_data == nullptr));
+    return (m_size.first == 0 && m_size.second == 0 && m_num_elems == 0);
 }
 
 /* checks if matrix is square */
-bool Matrix::is_square() 
+bool matrix::is_square() const
 {
-    return (this->m_size[0] == this->m_size[1]);
+    return (m_size.first == m_size.second);
 }
 
 /* checks if matrix is symmetric */
-bool Matrix::is_symmetric()
+bool matrix::is_symmetric() const
 {
-    if (this->m_size[0] != this->m_size[1])
+    if (m_size.first != m_size.second)
         return false;
     
-    for (unsigned int i = 0; i < this->m_size[0]; ++i)
-    {
-        for (unsigned int j = 0; j < this->m_size[0]; ++j)
-        {
-            if (this->m_data[this->ind(i, j)] != this->m_data[this->ind(j, i)])
-            {
+    for (size_t i = 0; i < m_size.first; ++i)
+        for (size_t j = 0; j < m_size.first; ++j)
+            if (m_data[ind(i, j)] != m_data[ind(j, i)])
                 return false;
-            }
-        }
-    }
+    
     return true;
 }
 
 /* ************************************************************************* 
-Matrix types */
+Common matrix types */
 
 /* returns identity matrix with given size */
-Matrix Matrix::identity(const unsigned int& size)
+matrix matrix::identity(const size_t& size)
 {
-    Matrix ident({size, size}, 0.0);
-    for (unsigned int i = 0; i < size; ++i)
-    {
+    matrix ident({size, size}, 0.0);
+    for (size_t i = 0; i < size; ++i)
         ident.m_data[ident.ind(i, i)] = 1.0;
-    }
+    
     return ident;
 }
 
 /* creates diagonal matrix given col vector of values */
-Matrix Matrix::diag(const Matrix& vals)
+matrix matrix::diag(const matrix& vals)
 {
-    assert(vals.size()[0] > 0);
-    assert(vals.size()[1] == 1);
-    Matrix result({vals.size()[0], vals.size()[0]}, 0.0);
-    for (unsigned int i = 0; i < vals.size()[0]; ++i)
-    {
+    assert(vals.m_size.first > 0);
+    assert(vals.m_size.second == 1);
+
+    matrix result({vals.m_size.first, vals.m_size.first}, 0.0);
+    for (size_t i = 0; i < vals.m_size.first; ++i)
         result.m_data[result.ind(i, i)] = vals.m_data[vals.ind(i, 0)];
-    }
+    
     return result;
 }
 
 /* returns empty matrix */
-Matrix Matrix::empty()
+matrix matrix::empty()
 {
-    Matrix result;
+    matrix result;
+    return result;
+}
+
+/* returns col matrix from vector */
+matrix matrix::from_vector(const std::vector<double>& vec)
+{
+    matrix result;
+    result.m_size = {vec.size(), 1};
+    result.m_num_elems = vec.size();
+    result.m_data = new double[result.m_num_elems];
+    for (size_t i = 0; i < result.m_num_elems; ++i)
+        result.m_data[i] = vec[i];
     return result;
 }
 
@@ -733,57 +620,57 @@ Matrix Matrix::empty()
 Gauss-Jordan elimination */
 
 /* swap two rows */
-void Matrix::swap_rows(const unsigned int& r0, const unsigned int& r1) 
+void matrix::swap_rows(const size_t& r0, const size_t& r1) 
 {
-    for (unsigned int i = 0; i < this->m_size[1]; ++i)
+    for (size_t i = 0; i < m_size.second; ++i)
     {
-        double tmp = this->m_data[this->ind(r0, i)];
-        this->m_data[this->ind(r0, i)] = this->m_data[this->ind(r1, i)];
-        this->m_data[this->ind(r1, i)] = tmp;
+        double tmp = m_data[ind(r0, i)];
+        m_data[ind(r0, i)] = m_data[ind(r1, i)];
+        m_data[ind(r1, i)] = tmp;
     }
 }
 
 /* swap two cols */
-void Matrix::swap_cols(const unsigned int& c0, const unsigned int& c1) 
+void matrix::swap_cols(const size_t& c0, const size_t& c1) 
 {
-    for (unsigned int i = 0; i < this->m_size[0]; ++i)
+    for (size_t i = 0; i < m_size.first; ++i)
     {
-        double tmp = this->m_data[this->ind(i, c0)];
-        this->m_data[this->ind(i, c0)] = this->m_data[this->ind(i, c1)];
-        this->m_data[this->ind(i, c1)] = tmp;
+        double tmp = m_data[ind(i, c0)];
+        m_data[ind(i, c0)] = m_data[ind(i, c1)];
+        m_data[ind(i, c1)] = tmp;
     }
 }
 
 /* scale a row */
-void Matrix::scale_row(const unsigned int& r, const double& a)
+void matrix::scale_row(const size_t& r, const double& a)
 {
-    for (unsigned int i = 0; i < this->m_size[1]; ++i)
+    for (size_t i = 0; i < m_size.second; ++i)
     {
-        if (this->m_data[this->ind(r, i)] != 0.0)
+        if (m_data[ind(r, i)] != 0.0)
         {
-            this->m_data[this->ind(r, i)] *= a;
+            m_data[ind(r, i)] *= a;
         }
     }
 }
 
 /* row axpy */
-void Matrix::axpy_row(const unsigned int& ry, const unsigned int& rx, const double& a)
+void matrix::axpy_row(const size_t& ry, const size_t& rx, const double& a)
 {
-    for (unsigned int i = 0; i < this->m_size[1]; ++i)
+    for (size_t i = 0; i < m_size.second; ++i)
     {
-        this->m_data[this->ind(ry, i)] += a * this->m_data[this->ind(rx, i)];
+        m_data[ind(ry, i)] += a * m_data[ind(rx, i)];
     }
 }
 
 /* get leading entry col for a given row index */
-unsigned int Matrix::leading_entry_col(const unsigned int& r)
+size_t matrix::leading_entry_col(const size_t& r) const
 {
-    for (unsigned int i = 0; i < this->m_size[1]; ++i)
+    for (size_t i = 0; i < m_size.second; ++i)
     {
-        if (this->m_data[this->ind(r, i)] != 0.0)
+        if (m_data[ind(r, i)] != 0.0)
             return i;
     }
-    return this->m_size[1];
+    return m_size.second;
 }
 
 /* gauss-jordan elimination to get row-reduced echelon form 
@@ -794,22 +681,22 @@ unsigned int Matrix::leading_entry_col(const unsigned int& r)
     then making sure all elements in the target col below this element are zero using axpy operation
     then all elements above each pivot are eliminated by iterating across the columns in the reverse direction
 
-    returns tuple containing the row-reduced echelon form matrix, the pivot location indexes and a code:
+    returns tuple containing the row-reduced echelon form matrix, the pivot location indexes and an enum:
         0 = inconsistent system
         1 = unique solution available
         2 = infinite solutions
 */
-std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> Matrix::row_reduced_echelon_form() 
+std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> matrix::row_reduced_echelon_form() const
 {
-    unsigned int solutionType = 1;
-    Matrix mat(*this);
+    size_t solutionType = 1;
+    matrix mat(*this);
 
     // get indexes of zero rows
-    std::vector<unsigned int> zeroRowArr = {};
-    for (unsigned int i = 0; i < mat.m_size[0]; ++i)
+    std::vector<size_t> zeroRowArr = {};
+    for (size_t i = 0; i < mat.m_size.first; ++i)
     {
         bool zero = true;
-        for (unsigned int j = 0; j < mat.m_size[1]; ++j)
+        for (size_t j = 0; j < mat.m_size.second; ++j)
         {
             if (mat.m_data[mat.ind(i, j)] != 0.0)
                 zero = false;
@@ -819,8 +706,8 @@ std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> Matrix:
     }
 
     // swap out each row index with bottom rows to make sure all zero rows are on the bottom
-    unsigned int zeroTargetRow = mat.m_size[0] - 1;
-    for (unsigned int i = 0; i < zeroRowArr.size(); ++i)
+    size_t zeroTargetRow = mat.m_size.first - 1;
+    for (size_t i = 0; i < zeroRowArr.size(); ++i)
     {
         mat.swap_rows(zeroRowArr[i], zeroTargetRow);
         zeroTargetRow--;
@@ -830,24 +717,24 @@ std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> Matrix:
     // loop down each row for each col to locate pivots and place them at the top most 'target row', which increments each time a pivot is found
     // then loop down each row in the pivot's column and axpy each row to make sure there are zeros below each pivot in the pivot's column
     // then increment the target col to find the next pivot
-    unsigned int targetCol = 0;
-    unsigned int targetRow = 0;
-    std::vector<std::vector<unsigned int>> pivots = {};
+    size_t targetCol = 0;
+    size_t targetRow = 0;
+    std::vector<std::pair<size_t,size_t>> pivots = {};
 
-    while ((targetRow < mat.m_size[0]) && (targetCol < mat.m_size[1]))
+    while ((targetRow < mat.m_size.first) && (targetCol < mat.m_size.second))
     {
         bool found = false;
-        for (unsigned int i = targetRow; i < mat.m_size[0]; ++i)
+        for (size_t i = targetRow; i < mat.m_size.first; ++i)
         {
             if (mat.m_data[mat.ind(i, targetCol)] != 0.0)
             {
                 found = true;
                 mat.swap_rows(targetRow, i); // once finding the row with the non zero term in the target column, swap this to be at the target row
                 mat.scale_row(targetRow, 1.0 / mat.m_data[mat.ind(targetRow, targetCol)]); // then scale the target row s.t. the target element is 1
-                pivots.push_back(std::vector<unsigned int>({targetRow, targetCol})); // this is a pivot so add it to the pivot vector
-                if (targetCol >= mat.m_size[0]) // this condition might need to be corrected... assumes that any col beyond the row size (assuming matrix is square) shouldn't have a pivot for consistency
+                pivots.push_back(std::pair<size_t,size_t>({targetRow, targetCol})); // this is a pivot so add it to the pivot vector
+                if (targetCol >= mat.m_size.first) // this condition might need to be corrected... assumes that any col beyond the row size (assuming matrix is square) shouldn't have a pivot for consistency
                 {
-                    solutionType = 0; // pivot located outside on LH square region of interest
+                    solutionType = 0; // pivot located outside on LH square region of size_terest
                 }
                 break;
             }
@@ -856,7 +743,7 @@ std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> Matrix:
         // check if a pivot was found in this column
         if (found == true)
         {
-            for (unsigned int i = targetRow + 1; i < mat.m_size[0]; ++i)
+            for (size_t i = targetRow + 1; i < mat.m_size.first; ++i)
             {
                 if (mat.m_data[mat.ind(i, targetCol)] != 0.0)
                 {
@@ -869,64 +756,64 @@ std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> Matrix:
     }
 
     // ensure all zeros above each pivot
-    for (int i = pivots.size() - 1; i >= 0; --i)
+    for (size_t i = pivots.size() - 1; i >= 0; --i)
     {
-        for (unsigned int j = 0; j < pivots[i][0]; ++j)
+        for (size_t j = 0; j < pivots[i].first; ++j)
         {
-            if (mat.m_data[mat.ind(j, pivots[i][1])] != 0.0)
+            if (mat.m_data[mat.ind(j, pivots[i].second)] != 0.0)
             {
-                mat.axpy_row(j, pivots[i][0], -mat.m_data[mat.ind(j, pivots[i][1])] / mat.m_data[mat.ind(pivots[i][0], pivots[i][1])]);
+                mat.axpy_row(j, pivots[i].first, -mat.m_data[mat.ind(j, pivots[i].second)] / mat.m_data[mat.ind(pivots[i].first, pivots[i].second)]);
             }
         }
     }
 
-    if ((solutionType != 0) && (pivots.size() < mat.m_size[0])) // check that sufficient pivots are found (= number of rows) otherwise there are infinite solutions 
+    if ((solutionType != 0) && (pivots.size() < mat.m_size.first)) // check that sufficient pivots are found (= number of rows) otherwise there are infinite solutions 
     {
         solutionType = 2;
     }
 
-    return std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int>(mat, pivots, solutionType);
+    return std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t>(mat, pivots, solutionType);
 }
 
 /* solve system of equations 
     requires that A is square
 */
-Matrix Matrix::solve_GJ(const Matrix& A, const Matrix& b) 
+matrix matrix::solve_GJ(const matrix& A, const matrix& b)
 {
-    Matrix augMat(A);
-    augMat.insert_cols(A.m_size[1], b);
+    matrix augMat(A);
+    augMat.insert_cols(A.m_size.second, b);
 
-    std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> tup = augMat.row_reduced_echelon_form();
-    Matrix reducedAugMat = std::get<0>(tup);
-    unsigned int solutionType = std::get<2>(tup);
+    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> tup = augMat.row_reduced_echelon_form();
+    matrix reducedAugMat = std::get<0>(tup);
+    size_t solutionType = std::get<2>(tup);
 
     if (solutionType == 1)
         // if there is a single solution then return this
-        return reducedAugMat.get_region({0, reducedAugMat.m_size[1] - 1}, {reducedAugMat.m_size[0], 1});
+        return reducedAugMat.get_region({0, reducedAugMat.m_size.second - 1}, {reducedAugMat.m_size.first, 1});
     else
         // otherwise return empty matrix
-        return Matrix::empty();
+        return matrix::empty();
 }
 
 /* inverts a matrix by augmenting on right with identity and reducing to row echelon form thereby obtaining identity on the left and inverse on the right */
-Matrix Matrix::inverse_GJ()
+matrix matrix::inverse_GJ() const
 { 
-    if (this->size()[0] != this->size()[1])
-        return Matrix::empty(); // if not a square matrix then return empty matrix as obviously not invertible
+    if (m_size.first != m_size.second)
+        return matrix::empty(); // if not a square matrix then return empty matrix as obviously not invertible
     
-    Matrix augMat(*this);
-    augMat.insert_cols(this->size()[1], Matrix::identity(this->size()[0]));
+    matrix augMat(*this);
+    augMat.insert_cols(m_size.second, matrix::identity(m_size.first));
 
-    std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> tup = augMat.row_reduced_echelon_form();
-    Matrix reducedAugMat = std::get<0>(tup);
-    unsigned int solutionType = std::get<2>(tup);
+    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> tup = augMat.row_reduced_echelon_form();
+    matrix reducedAugMat = std::get<0>(tup);
+    size_t solutionType = std::get<2>(tup);
 
-    if (solutionType == 1) // correct number of pivots found, all are located in the LH square region of interest
+    if (solutionType == 1) // correct number of pivots found, all are located in the LH square region of size_terest
     {
-        return reducedAugMat.get_region({0, this->size()[0]}, {this->size()[0], this->size()[0]});
+        return reducedAugMat.get_region({0, m_size.first}, {m_size.first, m_size.first});
     }
     else
-        return Matrix::empty();
+        return matrix::empty();
 }
 
 /* finds the null space of a matrix and returns its basis vectors 
@@ -950,87 +837,87 @@ Matrix Matrix::inverse_GJ()
     then the rows of the null space basis vectors are rearranged according to the rearrangement map to get the identity on the top LH of the row reduced matrix
     this ensures that the variables are in the original order provided by the cols of the matrix
 */
-Matrix Matrix::null_basis()
+matrix matrix::null_basis() const
 {
     // get the row echelon form of this matrix
-    std::tuple<Matrix, std::vector<std::vector<unsigned int>>, unsigned int> tup = this->row_reduced_echelon_form();
-    Matrix mat = std::get<0>(tup);
-    std::vector<std::vector<unsigned int>> pivots = std::get<1>(tup);
-    unsigned int solutionType = std::get<2>(tup);
-    unsigned int rank = pivots.size();
+    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> tup = row_reduced_echelon_form();
+    matrix mat = std::get<0>(tup);
+    std::vector<std::pair<size_t,size_t>> pivots = std::get<1>(tup);
+    size_t solutionType = std::get<2>(tup);
+    size_t rank = pivots.size();
 
-    if (rank == this->m_size[1])
-        return Matrix::empty(); // there are same number of pivots as variables therefore nullspace is { 0.0 }
+    if (rank == m_size.second)
+        return matrix::empty(); // there are same number of pivots as variables therefore nullspace is { 0.0 }
 
     // create a mapping for variable rearrangement to ensure pivots are contained in a identity matrix on top LH corner of matrix
-    std::vector<unsigned int> rearrangeMap = {};
-    for (unsigned int i = 0; i < this->m_size[1]; ++i)
+    std::vector<size_t> rearrangeMap = {};
+    for (size_t i = 0; i < m_size.second; ++i)
         rearrangeMap.push_back(i);
     
     // go through pivot positions to determine if swaps need to be made
-    unsigned int targetCol = 0;
-    for (unsigned int i = 0; i < rank; ++i)
+    size_t targetCol = 0;
+    for (size_t i = 0; i < rank; ++i)
     {
-        if (pivots[i][1] != targetCol)
+        if (pivots[i].second != targetCol)
         {
             // need to swap columns, record this in the rearragement mapping
-            mat.swap_cols(pivots[i][1], targetCol);
-            rearrangeMap[pivots[i][1]] = targetCol;
-            rearrangeMap[targetCol] = pivots[i][1];
+            mat.swap_cols(pivots[i].second, targetCol);
+            rearrangeMap[pivots[i].second] = targetCol;
+            rearrangeMap[targetCol] = pivots[i].second;
         }
         targetCol++;
     }
     
     // construct null basis matrix
-    mathlib::Matrix null_basis({this->m_size[1], this->m_size[1] - rank}); // create matrix for null basis vectors
-    null_basis.set_region({0, 0}, -1.0 * mat.get_region({0, rank}, {rank, this->m_size[1] - rank})); // adds the -C arbitrary matrix
-    null_basis.set_region({rank, 0}, Matrix::identity(this->m_size[1] - rank)); // adds the identity 
+    matrix nb({m_size.second, m_size.second - rank}); // create matrix for null basis vectors
+    nb.set_region({0, 0}, -1.0 * mat.get_region({0, rank}, {rank, m_size.second - rank})); // adds the -C arbitrary matrix
+    nb.set_region({rank, 0}, matrix::identity(m_size.second - rank)); // adds the identity 
 
     // rearrange rows to get original ordering of variables
-    for (unsigned int i = 0; i < this->m_size[1]; ++i)
+    for (size_t i = 0; i < m_size.second; ++i)
     {
         if (rearrangeMap[i] != i)
         {
-            null_basis.swap_rows(rearrangeMap[i], i);
+            nb.swap_rows(rearrangeMap[i], i);
             rearrangeMap[rearrangeMap[i]] = rearrangeMap[i];
             rearrangeMap[i] = i;
         }
     }
 
-    return null_basis;
+    return nb;
 }
 
 /* ************************************************************************* 
 Determinants */
 
 /* returns the minor of the current matrix */
-Matrix Matrix::minor(const unsigned int& r, const unsigned int& c) 
+matrix matrix::minor(const size_t& r, const size_t& c) const
 {
-    Matrix result(*this);
+    matrix result(*this);
     result.remove_rows(r, 1);
     result.remove_cols(c, 1);
     return result;
 }
 
 /* calculates the determinant using recursive formula - note this is not computationally efficient, just a proof of concept */
-double Matrix::determinant()
+double matrix::determinant() const
 {
-    if ((this->m_size[0] == 1) && (this->m_size[1] == 1))
+    if ((m_size.first == 1) && (m_size.second == 1))
     {
-        return this->m_data[0];
+        return m_data[0];
     }
     else
     {
         double det = 0.0;
         double sign = 1.0;
-        for (unsigned int i = 0; i < this->m_size[1]; ++i)
+        for (size_t i = 0; i < m_size.second; ++i)
         {
-            Matrix min = this->minor(0, i);
-            det += sign * this->m_data[this->ind(0, i)] * min.determinant();
+            matrix min = minor(0, i);
+            det += sign * m_data[ind(0, i)] * min.determinant();
             sign *= -1.0;  
         }
         return det;
     }
 }
 
-} // namespace mathlib
+} // namespace gv
