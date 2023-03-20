@@ -25,7 +25,6 @@ class matrix
 {
 private:
     std::pair<size_t,size_t> m_size;
-    size_t m_num_elems;
     std::vector<double> m_data;
 
 public:
@@ -72,6 +71,7 @@ public:
     void   remove_cols(const size_t& c, const size_t& n);
     matrix resize(const size_t& nrows, const size_t& ncols) const;
     matrix transpose() const;
+    double mag() const;
     bool   is_empty() const;
     bool   is_square() const;
     bool   is_symmetric() const;
@@ -207,7 +207,7 @@ matrix operator-(const matrix& lh, const matrix& rh)
 {
     assert(lh.m_size == rh.m_size);
     matrix result(lh.m_size);
-    for (size_t i = 0; i < lh.m_num_elems; ++i)
+    for (size_t i = 0; i < lh.m_data.size(); ++i)
         result.m_data[i] = lh.m_data[i] - rh.m_data[i];    
     return result;
 }
@@ -438,7 +438,7 @@ void matrix::remove_cols(const size_t& c, const size_t& n)
 /* returns resized matrix */
 matrix matrix::resize(const size_t& nrows, const size_t& ncols) const
 {
-    assert(nrows * ncols == m_num_elems);
+    assert(nrows * ncols == m_data.size());
 
     matrix result = *this;
     result.m_size.first = nrows;
@@ -456,6 +456,15 @@ matrix matrix::transpose() const
             result.m_data[result.ind(j, i)] = m_data[ind(i, j)];
     
     return result;
+}
+
+/* returns the magnitude of matrix by taking L2 norm of all values in vector style */
+double matrix::mag() const
+{
+    double sum = 0.0;
+    for (auto& val : m_data)
+        sum += val*val;
+    return (double)sqrt(sum);
 }
 
 /* checks if matrix is empty */
@@ -653,12 +662,8 @@ std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> matrix::reduce
 
                 // make sure the pivot is the only non-zero elem in this column
                 for (size_t j = 0; j < m_size.first; ++j)
-                {
                     if (j != target_row && rrm.m_data[ind(j, target_col)] != 0.0)
-                    {
                         rrm.axpy_row(j, target_row, -rrm.m_data[ind(j, target_col)] / rrm.m_data[ind(target_row, target_col)]);   
-                    }
-                }
 
                 // for the case of A,b sys of equations augmented matrix
                 // if the pivot is in the b cols then this system is inconsistent
