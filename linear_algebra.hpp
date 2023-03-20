@@ -17,9 +17,9 @@ William Denny
 namespace gv
 {
 
-/* **************************************************************************************************
-    MATRIX
-************************************************************************************************** */
+/* ************************************************************************* */
+
+// Matrix class
 
 class matrix
 {
@@ -39,19 +39,19 @@ public:
     friend matrix   operator+ (const matrix& lh, const matrix& rh);
     friend matrix   operator+ (const double& lh, const matrix& rh);
     friend matrix   operator+ (const matrix& lh, const double& rh);
-           void     operator+=(const matrix& rh);
-           void     operator+=(const double& rh);
+           void     operator+=                  (const matrix& rh);
+           void     operator+=                  (const double& rh);
     friend matrix   operator- (const matrix& lh, const matrix& rh);
     friend matrix   operator- (const double& lh, const matrix& rh);
     friend matrix   operator- (const matrix& lh, const double& rh);
-           void     operator-=(const matrix& rh);
-           void     operator-=(const double& rh);
+           void     operator-=                  (const matrix& rh);
+           void     operator-=                  (const double& rh);
     friend matrix   operator* (const matrix& lh, const matrix& rh);
     friend matrix   operator* (const double& lh, const matrix& rh);
     friend matrix   operator* (const matrix& lh, const double& rh);
-           void     operator*=(const double& rh);
+           void     operator*=                  (const double& rh);
     friend matrix   operator/ (const matrix& lh, const double& rh);
-           void     operator/=(const double& rh);
+           void     operator/=                  (const double& rh);
            double&  operator[](const std::pair<size_t,size_t>& sub);
     
     // customised uniform operation for all elements given individual function
@@ -65,16 +65,16 @@ public:
     size_t ind(const size_t& r, const size_t& c) const;
     double scal() const;
     matrix get_region(const std::pair<size_t,size_t>& sub, const std::pair<size_t,size_t>& size) const;
-    void set_region(const std::pair<size_t,size_t>& sub, const matrix& mat);
-    void insert_rows(const size_t& r, const matrix& mat);
-    void insert_cols(const size_t& c, const matrix& mat);
-    void remove_rows(const size_t& r, const size_t& n);
-    void remove_cols(const size_t& c, const size_t& n);
+    void   set_region(const std::pair<size_t,size_t>& sub, const matrix& mat);
+    void   insert_rows(const size_t& r, const matrix& mat);
+    void   insert_cols(const size_t& c, const matrix& mat);
+    void   remove_rows(const size_t& r, const size_t& n);
+    void   remove_cols(const size_t& c, const size_t& n);
     matrix resize(const size_t& nrows, const size_t& ncols) const;
     matrix transpose() const;
-    bool is_empty() const;
-    bool is_square() const;
-    bool is_symmetric() const;
+    bool   is_empty() const;
+    bool   is_square() const;
+    bool   is_symmetric() const;
     std::vector<std::vector<double>> to_vector() const;
 
     // matrix instance types
@@ -91,15 +91,23 @@ public:
     size_t leading_entry_col(const size_t& r) const;
     bool is_zero_row(const size_t& r) const;
     void sink_zero_rows();
-    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> row_reduced_echelon_form() const;
-    static matrix solve_GJ(const matrix& A, const matrix& b);
-    matrix inverse_GJ() const;
+    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> reduced_row_echelon_form() const;
+
     matrix null_basis() const;
 
     // determinants
     matrix minor(const size_t& r, const size_t& c) const;
     double determinant() const;
 
+};
+
+/* ************************************************************************* */
+
+// linear algebra functions
+namespace linalg
+{
+    matrix solve_GJ(const matrix& A, const matrix& b);
+    matrix invert_GJ(const matrix& mat);
 };
 
 /* ************************************************************************* */
@@ -594,6 +602,128 @@ void matrix::sink_zero_rows()
         else
             ++i;
     }
+}
+
+/* gauss-jordan elimination to get row-reduced echelon form
+    - soln refers to whether a square matrix A, b vector system of equations would have a soln
+        given reduced row echelon form on their augmented matrix. The values of soln are enumerated by:
+            0 = no solns exist (inconsistent)
+            1 = unique soln exists
+            2 = infinite solns exist
+*/
+std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> matrix::reduced_row_echelon_form() const
+{
+    // copy matrix to get row-reduced matrix
+    matrix rrm(*this);
+
+    // send all zero rows to bottom of the copied matrix
+    rrm.sink_zero_rows();
+
+    // locate pivots
+    // target_row and target_col are the targets for the next pivot, these are pushed downwards and rightwards as the pivots are found
+    // to find a pivot, the rows starting from the target_row are scanned on each column starting at the target column
+    // once a pivot is found its row is swapped to the target row and the row is scaled so the pivot element = 1
+    // the type of soln present is recorded, this is relevant if A,b sys of equations is given in augmented matrix 
+    size_t target_row, target_col;
+    size_t soln = 1;
+    std::vector<std::pair<size_t,size_t>> pivots;
+
+    target_row = 0;
+
+    // iterate across columns
+    for (target_col = 0; target_col < m_size.second; ++target_col)
+    {
+        // if target_row is out of range then stop searching for pivots
+        if (target_row >= m_size.first)
+            break;
+        
+        // iterate down column to find first row with non-zero elem
+        for (size_t i = target_row; i < m_size.first; ++i)
+        {
+            if (rrm.m_data[ind(i, target_col)] != 0.0)
+            {
+                // swap this row with target_row
+                rrm.swap_rows(target_row, i);
+                
+                // scale row s.t. pivot elem = 1
+                rrm.scale_row(target_row, 1.0 / rrm.m_data[ind(target_row, target_col)]);
+
+                // record pivot
+                pivots.push_back({target_row, target_col});
+
+                // make sure the pivot is the only non-zero elem in this column
+                for (size_t j = 0; j < m_size.first; ++j)
+                {
+                    if (j != target_row && rrm.m_data[ind(j, target_col)] != 0.0)
+                    {
+                        rrm.axpy_row(j, target_row, -rrm.m_data[ind(j, target_col)] / rrm.m_data[ind(target_row, target_col)]);   
+                    }
+                }
+
+                // for the case of A,b sys of equations augmented matrix
+                // if the pivot is in the b cols then this system is inconsistent
+                // record this in the soln parameter
+                if (target_col >= rrm.m_size.first)
+                    soln = 0;
+
+                // increment target_row as this row now has a pivot
+                target_row++;
+
+                // stop iterating down column
+                break;
+            }
+        }
+    }
+
+    // for the case of A,b sys of equations augmented matrix
+    // if there are less pivots than number of rows, the sys has infinite solns
+    if (soln != 0 && pivots.size() < rrm.m_size.first)
+        soln = 2;
+
+    return {rrm, pivots, soln};
+}
+
+/* solve system of equations for unique soln use gauss-jordan elimination
+- requires A is square 
+- requires b has 1 column
+- only provides output if unique solution exists, otherwise returns zero matrix
+*/
+matrix linalg::solve_GJ(const matrix& A, const matrix& b)
+{
+    assert(A.is_square() && A.size().first == b.size().first && b.size().second == 1);
+
+    // augment A matrix with b vector
+    matrix aug(A);
+    aug.insert_cols(A.size().second, b);
+
+    // get reduced row echelon form of augmented matrix
+    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> tup = aug.reduced_row_echelon_form();
+
+    // if soln exists then augmented matrix, in the case of dim=n, has form [ In  s ]
+    // where In is identity matrix of size n and s is the solution vector
+    if (std::get<2>(tup) == 1)
+        return std::get<0>(tup).get_region({0, aug.size().second - 1}, {aug.size().first, 1});
+    else
+        return matrix::empty();
+}
+
+// inverts a matrix using gauss-jordan elimination
+matrix linalg::invert_GJ(const matrix& mat)
+{
+    assert(mat.is_square());
+
+    // augment matrix with identity matrix
+    matrix aug(mat);
+    aug.insert_cols(mat.size().second, matrix::identity(mat.size().first));
+
+    // get row reduced echelon form
+    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> tup = aug.reduced_row_echelon_form();
+
+    // if soln == 1 then matrix invertible so return augmented part as inverted matrix
+    if (std::get<2>(tup) == 1)
+        return std::get<0>(tup).get_region({0, mat.size().first}, {mat.size().first, mat.size().first});
+    else
+        return matrix::empty();
 }
 
 } // namespace gv
