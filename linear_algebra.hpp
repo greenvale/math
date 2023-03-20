@@ -1,7 +1,7 @@
+#pragma once
 /* Linear Algebra
 William Denny
 */
-#pragma once
 
 #include <vector>
 #include <iostream>
@@ -13,6 +13,7 @@ William Denny
 #include <string>
 #include <cstring>
 #include <algorithm>
+#include "math.h"
 
 namespace gv
 {
@@ -82,6 +83,7 @@ public:
     static matrix diag(const matrix& vals);
     static matrix empty();
     static matrix from_vector(const std::vector<double>& vec);
+    static matrix random(const std::pair<size_t,size_t> size, const double& min, const double& max);
 
     // Gauss-Jordan elimination
     void swap_rows(const size_t& r0, const size_t& r1);
@@ -543,6 +545,17 @@ matrix matrix::from_vector(const std::vector<double>& vec)
     matrix result;
     result.m_size = {vec.size(), 1};
     result.m_data = vec;
+    return result;
+}
+
+/* returns random matrix of given size over given range */
+matrix matrix::random(std::pair<size_t,size_t> size, const double& min, const double& max)
+{
+    matrix result;
+    result.m_size = size;
+    result.m_data = std::vector<double>(size.first * size.second);
+    for (size_t i = 0; i < size.first * size.second; ++i)
+        result.m_data[i] = min + ((double)rand() / (double)RAND_MAX)*(max - min);
     return result;
 }
 

@@ -44,30 +44,33 @@ std::pair<double,uint64_t> test_soln_GJ(const gv::matrix& A, const gv::matrix& x
     return {(x_soln - x).mag(), duration.count()};
 }
 
-gv::matrix rand_matrix(std::pair<size_t,size_t> size, const double& min, const double& max)
+std::pair<double,uint64_t> test_invert_GJ(const gv::matrix& A)
 {
-    std::vector<double> vals(size.first * size.second);
-    for (int i = 0; i < size.first * size.second; ++i)
-        vals[i] = min + ((double)rand() / (double)RAND_MAX) * (max - min);
-    return gv::matrix::from_vector(vals).resize(size.first, size.second);
+    auto start = std::chrono::high_resolution_clock::now();
+
+    gv::matrix inv = gv::linalg::invert_GJ(A);
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+
+    return {((A*inv) - gv::matrix::identity(A.size().first)).mag(), duration.count()};
 }
 
 /*******************************************************************************************/
 // MAIN TEST FUNCTIONS
 /*******************************************************************************************/
 
-void LINALG_SOLN_GJ_TEST(int num_tests, double min, double max, const double& tol)
+void LINALG_SOLN_GJ_TEST(int num_tests, double min, double max)
 {
     std::cout << "\tRUNNING LINALG GJ SOLN TEST..." << std::endl;
 
-    int passes = 0;
     std::vector<double> diffs(num_tests);
     std::vector<uint64_t> dur(num_tests);
 
     for (int i = 0; i < num_tests; ++i)
     {
-        gv::matrix A = rand_matrix({i+2,i+2}, min, max);
-        gv::matrix x = rand_matrix({i+2,1}, min, max);
+        gv::matrix A = gv::matrix::random({i+2,i+2}, min, max);
+        gv::matrix x = gv::matrix::random({i+2,1}, min, max);
         std::pair<double, uint64_t> pr = test_soln_GJ(A, x);
         diffs[i] = pr.first;
         dur[i] = pr.second;
@@ -83,7 +86,6 @@ void LINALG_SOLN_GJ_TEST(int num_tests, double min, double max, const double& to
         std::cout.precision(5);
         std::cout.width(20);
         std::cout << "\t " << diffs[i];
-        passes += (diffs[i] > tol);
 
         std::cout.precision(5);
         std::cout.width(20);
@@ -91,13 +93,45 @@ void LINALG_SOLN_GJ_TEST(int num_tests, double min, double max, const double& to
 
         std::cout << "\n";
     }
+}
 
-    std::cout << "\n\n" << passes << "/" << num_tests << " LINALG GJ SOLN TESTS PASSED " << tol << " TOL\n\n";
+void LINALG_INV_GJ_TEST(int num_tests, double min, double max)
+{
+    std::cout << "\tRUNNING LINALG GJ INVERT TEST..." << std::endl;
+
+    std::vector<double> diffs(num_tests);
+    std::vector<uint64_t> dur(num_tests);
+
+    for (int i = 0; i < num_tests; ++i)
+    {
+        gv::matrix A = gv::matrix::random({i+2,i+2}, min, max);
+        std::pair<double, uint64_t> pr = test_invert_GJ(A);
+        diffs[i] = pr.first;
+        dur[i] = pr.second;
+
+        std::cout.precision(5);
+        std::cout.width(20);
+        std::cout << "TEST " << i << "\t";
+        
+        std::cout.precision(5);
+        std::cout.width(20);
+        std::cout << i+2 << "x" << i+2;
+
+        std::cout.precision(5);
+        std::cout.width(20);
+        std::cout << "\t " << diffs[i];
+
+        std::cout.precision(5);
+        std::cout.width(20);
+        std::cout << "\t " << dur[i] << " microsec";
+
+        std::cout << "\n";
+    }
 }
 
 /*******************************************************************************************/
 
 int main()
 {
-    LINALG_SOLN_GJ_TEST(1000, -10000, 10000, 1e-8);
+    LINALG_INV_GJ_TEST(100, -1000, 1000);
 }
