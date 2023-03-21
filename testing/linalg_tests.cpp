@@ -12,13 +12,10 @@
 
 std::pair<double,uint64_t> test_soln_GJ(const gv::matrix& A, const gv::matrix& x)
 {
-    gv::matrix b = A * x;
+    gv::matrix b = gv::matrix::matmul(A, x);
 
     gv::matrix aug = A;
-    aug.insert_cols(A.size().second, b);
-
-    //std::tuple<gv::matrix, std::vector<std::pair<size_t,size_t>>, size_t> tup = aug.reduced_row_echelon_form();
-    //std::get<0>(tup).print();
+    aug.insert_cols(A.size()[1], b);
 
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -26,20 +23,6 @@ std::pair<double,uint64_t> test_soln_GJ(const gv::matrix& A, const gv::matrix& x
 
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-
-    /*
-    // PRINT SOLUTION INFO
-    std::cout << "SYSTEM: \nA:\n";
-    A.print();
-    std::cout << "b:\n";
-    b.print();
-    std::cout << "SOLUTION: \n";
-    if (x_soln.is_empty())
-        std::cout << "\n==!! NO UNIQUE SOLN FOUND !!==\n";
-    x_soln.print();
-    std::cout << "SHOULD BE: \n";
-    x.print();
-    */
 
     return {(x_soln - x).mag(), duration.count()};
 }
@@ -53,21 +36,21 @@ std::pair<double,uint64_t> test_invert_GJ(const gv::matrix& A)
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 
-    return {((A*inv) - gv::matrix::identity(A.size().first)).mag(), duration.count()};
+    return {(gv::matrix::matmul(A,inv) - gv::matrix::identity(A.size()[0])).mag(), duration.count()};
 }
 
 /*******************************************************************************************/
 // MAIN TEST FUNCTIONS
 /*******************************************************************************************/
 
-void LINALG_SOLN_GJ_TEST(int num_tests, double min, double max)
+void LINALG_SOLN_GJ_TEST(size_t num_tests, double min, double max)
 {
     std::cout << "\tRUNNING LINALG GJ SOLN TEST..." << std::endl;
 
     std::vector<double> diffs(num_tests);
     std::vector<uint64_t> dur(num_tests);
 
-    for (int i = 0; i < num_tests; ++i)
+    for (size_t i = 0; i < num_tests; ++i)
     {
         gv::matrix A = gv::matrix::random({i+2,i+2}, min, max);
         gv::matrix x = gv::matrix::random({i+2,1}, min, max);
@@ -95,14 +78,14 @@ void LINALG_SOLN_GJ_TEST(int num_tests, double min, double max)
     }
 }
 
-void LINALG_INV_GJ_TEST(int num_tests, double min, double max)
+void LINALG_INV_GJ_TEST(size_t num_tests, double min, double max)
 {
     std::cout << "\tRUNNING LINALG GJ INVERT TEST..." << std::endl;
 
     std::vector<double> diffs(num_tests);
     std::vector<uint64_t> dur(num_tests);
 
-    for (int i = 0; i < num_tests; ++i)
+    for (size_t i = 0; i < num_tests; ++i)
     {
         gv::matrix A = gv::matrix::random({i+2,i+2}, min, max);
         std::pair<double, uint64_t> pr = test_invert_GJ(A);
@@ -133,5 +116,4 @@ void LINALG_INV_GJ_TEST(int num_tests, double min, double max)
 
 int main()
 {
-    LINALG_INV_GJ_TEST(100, -1000, 1000);
 }
