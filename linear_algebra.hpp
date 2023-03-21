@@ -50,9 +50,13 @@ public:
     friend matrix   operator* (const double& lh, const matrix& rh);
     friend matrix   operator* (const matrix& lh, const double& rh);
            void     operator*=                  (const double& rh);
+    friend matrix   operator/ (const matrix& lh, const matrix& rh);
     friend matrix   operator/ (const matrix& lh, const double& rh);
            void     operator/=                  (const double& rh);
+           void     operator/=                  (const matrix& rh);
            double&  operator[](const std::pair<size_t,size_t>& sub);
+
+    static matrix   matmul    (const matrix& lh, const matrix& rh);
     
     // customised uniform operation for all elements given individual function
     void lambda(const std::function<double()>& func);
@@ -70,8 +74,11 @@ public:
     void   insert_cols(const size_t& c, const matrix& mat);
     void   remove_rows(const size_t& r, const size_t& n);
     void   remove_cols(const size_t& c, const size_t& n);
+    void   duplicate_row(const size_t& r, const size_t& n);
+    void   duplicate_col(const size_t& c, const size_t& n);
     matrix resize(const size_t& nrows, const size_t& ncols) const;
     matrix transpose() const;
+    matrix sum(const int& dim) const;
     double mag() const;
     bool   is_empty() const;
     bool   is_square() const;
@@ -82,10 +89,10 @@ public:
     static matrix identity(const size_t& size);
     static matrix diag(const matrix& vals);
     static matrix empty();
-    static matrix from_vector(const std::vector<double>& vec);
+    static matrix vector(const std::vector<double>& vec);
     static matrix random(const std::pair<size_t,size_t> size, const double& min, const double& max);
 
-    // Gauss-Jordan elimination
+    // elementary row operations
     void swap_rows(const size_t& r0, const size_t& r1);
     void swap_cols(const size_t& c0, const size_t& c1);
     void scale_row(const size_t& r, const double& a);
@@ -93,13 +100,11 @@ public:
     size_t leading_entry_col(const size_t& r) const;
     bool is_zero_row(const size_t& r) const;
     void sink_zero_rows();
-    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> reduced_row_echelon_form() const;
-
-    matrix null_basis() const;
+    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> rref() const;
 
     // determinants
     matrix minor(const size_t& r, const size_t& c) const;
-    double determinant() const;
+    double det() const;
 
 };
 
@@ -108,8 +113,10 @@ public:
 // linear algebra functions
 namespace linalg
 {
+    // Gauss-Jordan elimination
     matrix solve_GJ(const matrix& A, const matrix& b);
     matrix invert_GJ(const matrix& mat);
+    matrix null_basis_GJ(const matrix& mat);
 };
 
 /* ************************************************************************* */
@@ -247,8 +254,18 @@ void matrix::operator-=(const double& rh)
         m_data[i] -= rh;
 }
 
-/* matrix * matrix */
+/* matrix * matrix - multiply element by element */
 matrix operator*(const matrix& lh, const matrix& rh)
+{
+    assert(lh.m_size == rh.m_size);
+    matrix result = lh;
+    for (size_t i = 0; i < lh.m_data.size(); ++i)
+        result.m_data[i] *= rh.m_data[i];
+    return result;
+}
+
+/* matrix multiplication */
+matrix matrix::matmul(const matrix& lh, const matrix& rh)
 {
     assert(lh.m_size.second == rh.m_size.first); // num cols for lh must equate num rows for rh
     matrix result({lh.m_size.first, rh.m_size.second}, 0.0); // result size is (num rows for lh, num cols for rh)
@@ -286,6 +303,16 @@ void matrix::operator*=(const double& rh)
         m_data[i] *= rh;
 }
 
+/* matrix / matrix - divide element by element */
+matrix operator/(const matrix &lh, const matrix& rh)
+{
+    assert(lh.m_size == rh.m_size);
+    matrix result = lh;
+    for (size_t i = 0; i < lh.m_data.size(); ++i)
+        result.m_data[i] /= rh.m_data[i];
+    return result;
+}
+
 /* matrix / scalar */
 matrix operator/(const matrix& lh, const double& rh)
 {
@@ -300,6 +327,14 @@ void matrix::operator/=(const double& rh)
 {
     for (size_t i = 0; i < m_data.size(); ++i)
         m_data[i] /= rh;
+}
+
+/*  divided one matrix by other element by element */
+void matrix::operator/=(const matrix& rh)
+{
+    assert(m_size == rh.m_size);
+    for (size_t i = 0; i < m_data.size(); ++i)
+        m_data[i] /= rh.m_data[i];
 }
 
 /* */
@@ -437,6 +472,31 @@ void matrix::remove_cols(const size_t& c, const size_t& n)
             m_data.begin() + i*m_size.second + c + n);
 }
 
+/* duplicate row at its position n times */
+void matrix::duplicate_row(const size_t& r, const size_t& n)
+{
+    assert(r < m_size.first);
+
+    m_size.first += n;
+    for (size_t i = 0; i < n; ++i)
+        m_data.insert(m_data.begin() + r*m_size.second, 
+            m_data.begin() + r*m_size.second,
+            m_data.begin() + (r+1)*m_size.second);
+}
+
+/* duplicate col at its position n times */
+void matrix::duplicate_col(const size_t& c, const size_t& n)
+{
+    assert(c < m_size.second);
+
+    m_size.second += n;
+    for (size_t i = 0; i < m_size.first; ++i)
+        for (size_t j = 0; j < n; ++j)
+            m_data.insert(m_data.begin() + i*m_size.second + c,
+                m_data.begin() + i*m_size.second + c,
+                m_data.begin() + i*m_size.second + c+1);
+}
+
 /* returns resized matrix */
 matrix matrix::resize(const size_t& nrows, const size_t& ncols) const
 {
@@ -458,6 +518,42 @@ matrix matrix::transpose() const
             result.m_data[result.ind(j, i)] = m_data[ind(i, j)];
     
     return result;
+}
+
+/* returns sum of all elements in matrix */
+matrix matrix::sum(const int& dim) const
+{
+    assert(dim == -1 || dim == 0 || dim == 1);
+    if (dim == -1) // sum all values
+    {
+        matrix result({1,1});
+        result.m_data[0] = 0.0;
+        for (auto& d : m_data)
+            result.m_data[0] += d;
+        return result;        
+    }
+    else if (dim == 0) // sum along each row
+    {
+        matrix result({m_size.first, 1});
+        for (size_t i = 0; i < m_size.first; ++i)
+        {
+            result.m_data[i] = 0.0;
+            for (size_t j = 0; j < m_size.second; ++j)
+                result.m_data[i] += m_data[ind(i, j)];
+        }
+        return result;
+    }
+    else // dim == 1 : sum along each col
+    {
+        matrix result({1, m_size.second});
+        for (size_t i = 0; i < m_size.second; ++i)
+        {
+            result.m_data[i] = 0.0;
+            for (size_t j = 0; j < m_size.first; ++j)
+                result.m_data[i] += m_data[ind(j, i)];
+        }
+        return result;
+    }
 }
 
 /* returns the magnitude of matrix by taking L2 norm of all values in vector style */
@@ -540,7 +636,7 @@ matrix matrix::empty()
 }
 
 /* returns col matrix from vector */
-matrix matrix::from_vector(const std::vector<double>& vec)
+matrix matrix::vector(const std::vector<double>& vec)
 {
     matrix result;
     result.m_size = {vec.size(), 1};
@@ -633,7 +729,7 @@ void matrix::sink_zero_rows()
             1 = unique soln exists
             2 = infinite solns exist
 */
-std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> matrix::reduced_row_echelon_form() const
+std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> matrix::rref() const
 {
     // copy matrix to get row-reduced matrix
     matrix rrm(*this);
@@ -715,7 +811,7 @@ matrix linalg::solve_GJ(const matrix& A, const matrix& b)
     aug.insert_cols(A.size().second, b);
 
     // get reduced row echelon form of augmented matrix
-    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> tup = aug.reduced_row_echelon_form();
+    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> tup = aug.rref();
 
     // if soln exists then augmented matrix, in the case of dim=n, has form [ In  s ]
     // where In is identity matrix of size n and s is the solution vector
@@ -735,7 +831,7 @@ matrix linalg::invert_GJ(const matrix& mat)
     aug.insert_cols(mat.size().second, matrix::identity(mat.size().first));
 
     // get row reduced echelon form
-    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> tup = aug.reduced_row_echelon_form();
+    std::tuple<matrix, std::vector<std::pair<size_t,size_t>>, size_t> tup = aug.rref();
 
     // if soln == 1 then matrix invertible so return augmented part as inverted matrix
     if (std::get<2>(tup) == 1)
