@@ -1,6 +1,10 @@
 #pragma once
-/* Linear Algebra
-William Denny
+
+/*  LINEAR ALGEBRA
+    ^^^^^^^^^^^^^^
+
+    William Denny (greenvale)
+
 */
 
 #include <vector>
@@ -35,7 +39,7 @@ public:
     matrix(const std::array<size_t,2>& size, const double& val);
     matrix(const std::array<size_t,2>& size, const std::vector<std::vector<double>>& data);
 
-    // operator overloading
+    // operator overloading for element-wise operations
     friend bool     operator==(const matrix& lh, const matrix& rh);
     friend matrix   operator+ (const matrix& lh, const matrix& rh);
     friend matrix   operator+ (const double& lh, const matrix& rh);
@@ -56,7 +60,10 @@ public:
            void     operator/=                  (const double& rh);
            void     operator/=                  (const matrix& rh);
            double&  operator[](const std::array<size_t,2>& sub);
+           
 
+    // matrix multiplication
+           matrix   mul                         (const matrix& rh) const;
     static matrix   matmul    (const matrix& lh, const matrix& rh);
     
     // customised uniform operation for all elements given individual function
@@ -75,8 +82,10 @@ public:
     void   insert_cols(const size_t& c, const matrix& mat);
     void   remove_rows(const size_t& r, const size_t& n);
     void   remove_cols(const size_t& c, const size_t& n);
-    void   duplicate_row(const size_t& r, const size_t& n);
-    void   duplicate_col(const size_t& c, const size_t& n);
+    void   duplicate_rows(const size_t& r, const size_t& nrows, const size_t& n);
+    void   duplicate_cols(const size_t& c, const size_t& ncols, const size_t& n);
+    void   move_rows(const size_t& r0, const size_t& r1, const size_t& n);
+    void   move_cols(const size_t&c0, const size_t& c1, const size_t& n);
     matrix resize(const size_t& nrows, const size_t& ncols) const;
     matrix transpose() const;
     matrix sum(const int& dim) const;
@@ -101,9 +110,9 @@ public:
     size_t leading_entry_col(const size_t& r) const;
     bool is_zero_row(const size_t& r) const;
     void sink_zero_rows();
-    std::tuple<matrix, std::vector<std::array<size_t,2>>, size_t> rref() const;
+    std::tuple<matrix, std::vector<size_t>, size_t> rref() const;
 
-    // determinants
+    // determinant
     matrix minor(const size_t& r, const size_t& c) const;
     double det() const;
 
@@ -265,18 +274,24 @@ matrix operator*(const matrix& lh, const matrix& rh)
     return result;
 }
 
-/* matrix multiplication */
-matrix matrix::matmul(const matrix& lh, const matrix& rh)
+/* matrix multiplication (member function) */
+matrix matrix::mul(const matrix& rh) const
 {
-    assert(lh.m_size[1] == rh.m_size[0]); // num cols for lh must equate num rows for rh
-    matrix result({lh.m_size[0], rh.m_size[1]}, 0.0); // result size is (num rows for lh, num cols for rh)
+    assert(m_size[1] == rh.m_size[0]); // num cols for lh must equate num rows for rh
+    matrix result({m_size[0], rh.m_size[1]}, 0.0); // result size is (num rows for lh, num cols for rh)
     
-    for (size_t i = 0; i < lh.m_size[0]; ++i) // loop through rows in lh
+    for (size_t i = 0; i < m_size[0]; ++i) // loop through rows in lh
         for (size_t j = 0; j < rh.m_size[1]; ++j) // loop through cols in rh
-            for (size_t k = 0; k < lh.m_size[1]; ++k) // for element (i, j) take dot product of row i in lh and col j in rh
-                result.m_data[result.ind(i, j)] += lh.m_data[lh.ind(i, k)] * rh.m_data[rh.ind(k, j)];
+            for (size_t k = 0; k < m_size[1]; ++k) // for element (i, j) take dot product of row i in lh and col j in rh
+                result.m_data[result.ind(i, j)] += m_data[ind(i, k)] * rh.m_data[rh.ind(k, j)];
 
     return result;
+}
+
+/* matrix multiplication (static function) */
+matrix matrix::matmul(const matrix& lh, const matrix& rh)
+{
+    return lh.mul(rh);
 }
 
 /* scalar * matrix */
@@ -473,29 +488,65 @@ void matrix::remove_cols(const size_t& c, const size_t& n)
             m_data.begin() + i*m_size[1] + c + n);
 }
 
-/* duplicate row at its position n times */
-void matrix::duplicate_row(const size_t& r, const size_t& n)
+/* duplicate rows at position n times */
+void matrix::duplicate_rows(const size_t& r, const size_t& nrows, const size_t& n)
 {
-    assert(r < m_size[0]);
+    assert(r < m_size[0] && r + n <= m_size[0]);
 
-    m_size[0] += n;
+    std::vector<double> tmp(m_data.begin() + m_size[1]*r, m_data.begin() + m_size[1]*(r + nrows));
+
+    m_size[0] += nrows*n;
     for (size_t i = 0; i < n; ++i)
-        m_data.insert(m_data.begin() + r*m_size[1], 
-            m_data.begin() + r*m_size[1],
-            m_data.begin() + (r+1)*m_size[1]);
+        m_data.insert(m_data.begin() + r*m_size[1], tmp.begin(), tmp.end());
 }
 
-/* duplicate col at its position n times */
-void matrix::duplicate_col(const size_t& c, const size_t& n)
+/* duplicate cols at position n times */
+void matrix::duplicate_cols(const size_t& c, const size_t& ncols, const size_t& n)
 {
     assert(c < m_size[1]);
 
-    m_size[1] += n;
+    m_size[1] += ncols*n;
     for (size_t i = 0; i < m_size[0]; ++i)
+    {
+        std::vector<double> tmp(m_data.begin() + m_size[1]*i + c, m_data.begin() + m_size[1]*i + c+ncols);
         for (size_t j = 0; j < n; ++j)
-            m_data.insert(m_data.begin() + i*m_size[1] + c,
-                m_data.begin() + i*m_size[1] + c,
-                m_data.begin() + i*m_size[1] + c+1);
+            m_data.insert(m_data.begin() + i*m_size[1] + c, tmp.begin(), tmp.end());
+    }
+}
+
+/* moves n rows starting at index r0 to the current r1 position */
+void matrix::move_rows(const size_t& r0, const size_t& r1, const size_t& n)
+{
+    assert(r0 < m_size[0] && r1 <= m_size[0] && r0 + n <= m_size[0]);
+
+    size_t k = 0;
+    if (r1 < r0)
+        k = n;
+    std::vector<double> tmp(m_data.begin() + m_size[1]*r0, 
+                            m_data.begin() + m_size[1]*(r0+n));
+    m_data.insert(m_data.begin() + m_size[1]*r1,            tmp.begin(), tmp.end());
+    m_data.erase( m_data.begin() + m_size[1]*(r0+k), 
+                  m_data.begin() + m_size[1]*(r0+k+n));
+}
+
+/* moves n cols starting at index c0 to the current c1 position */
+void matrix::move_cols(const size_t& c0, const size_t& c1, const size_t& n)
+{
+    assert(c0 < m_size[1] && c1 <= m_size[1] && c0 + n <= m_size[1]);
+
+    size_t k = 0;
+    if (c1 < c0)
+        k = n;
+
+    for (size_t i = 0; i < m_size[0]; ++i)
+    {
+        std::vector<double> tmp(m_data.begin() + m_size[1]*i + c0, 
+                                m_data.begin() + m_size[1]*i + c0+n);
+        m_data.insert(m_data.begin() + m_size[1]*i + c1,    tmp.begin(), tmp.end());
+        m_data.erase( m_data.begin() + m_size[1]*i + c0+k, 
+                      m_data.begin() + m_size[1]*i + c0+k+n);
+        
+    }
 }
 
 /* returns resized matrix */
@@ -684,7 +735,9 @@ void matrix::scale_row(const size_t& r, const double& a)
 void matrix::axpy_row(const size_t& ry, const size_t& rx, const double& a)
 {
     for (size_t i = 0; i < m_size[1]; ++i)
+    {
         m_data[ind(ry, i)] += a * m_data[ind(rx, i)];
+    }
 }
 
 /* get leading entry col for a given row index */
@@ -730,7 +783,7 @@ void matrix::sink_zero_rows()
             1 = unique soln exists
             2 = infinite solns exist
 */
-std::tuple<matrix, std::vector<std::array<size_t,2>>, size_t> matrix::rref() const
+std::tuple<matrix, std::vector<size_t>, size_t> matrix::rref() const
 {
     // copy matrix to get row-reduced matrix
     matrix rrm(*this);
@@ -745,7 +798,7 @@ std::tuple<matrix, std::vector<std::array<size_t,2>>, size_t> matrix::rref() con
     // the type of soln present is recorded, this is relevant if A,b sys of equations is given in augmented matrix 
     size_t target_row, target_col;
     size_t soln = 1;
-    std::vector<std::array<size_t,2>> pivots;
+    std::vector<size_t> pivots;
 
     target_row = 0;
 
@@ -768,12 +821,15 @@ std::tuple<matrix, std::vector<std::array<size_t,2>>, size_t> matrix::rref() con
                 rrm.scale_row(target_row, 1.0 / rrm.m_data[ind(target_row, target_col)]);
 
                 // record pivot
-                pivots.push_back({target_row, target_col});
+                pivots.push_back(target_col);
 
                 // make sure the pivot is the only non-zero elem in this column
                 for (size_t j = 0; j < m_size[0]; ++j)
                     if (j != target_row && rrm.m_data[ind(j, target_col)] != 0.0)
-                        rrm.axpy_row(j, target_row, -rrm.m_data[ind(j, target_col)] / rrm.m_data[ind(target_row, target_col)]);   
+                    {
+                        rrm.axpy_row(j, target_row, -rrm.m_data[ind(j, target_col)] / rrm.m_data[ind(target_row, target_col)]);
+                        rrm.m_data[ind(j, target_col)] = 0.0;
+                    }   
 
                 // for the case of A,b sys of equations augmented matrix
                 // if the pivot is in the b cols then this system is inconsistent
@@ -812,7 +868,7 @@ matrix linalg::solve_GJ(const matrix& A, const matrix& b)
     aug.insert_cols(A.size()[1], b);
 
     // get reduced row echelon form of augmented matrix
-    std::tuple<matrix, std::vector<std::array<size_t,2>>, size_t> tup = aug.rref();
+    auto tup = aug.rref();
 
     // if soln exists then augmented matrix, in the case of dim=n, has form [ In  s ]
     // where In is identity matrix of size n and s is the solution vector
@@ -832,13 +888,141 @@ matrix linalg::invert_GJ(const matrix& mat)
     aug.insert_cols(mat.size()[1], matrix::identity(mat.size()[0]));
 
     // get row reduced echelon form
-    std::tuple<matrix, std::vector<std::array<size_t,2>>, size_t> tup = aug.rref();
+    auto tup = aug.rref();
 
     // if soln == 1 then matrix invertible so return augmented part as inverted matrix
     if (std::get<2>(tup) == 1)
         return std::get<0>(tup).get_region({0, mat.size()[0]}, {mat.size()[0], mat.size()[0]});
     else
         return matrix::empty();
+}
+
+// returns nullspace basis by solving equation Ax = 0 for x (x = matrix of nullspace vectors) using Gauss-Jordan elimination
+/*  Summary of method:
+    - obtains the row reduced form
+    - then rearranges columns (and thus variables) to get it in the form
+                     r                  k-r
+              /                                    \
+         r   |    I_[r x r]        C_[r x (k-r)]    |
+             |                                      |
+        n-r  |  0_[(n-r) x r]    0_[(n-r) x (k-r)]  |
+              \                                    /
+        
+        with dimension [n x k]
+        
+        where:
+            -> r       =  the rank of this matrix
+            -> k       =  the number of cols (num of variables)
+            -> k-r     =  the nullity (num of null basis vectors)
+            -> n       =  the number of rows (num of equations)
+            -> I       =  identity
+            -> C       =  some matrix
+            -> 0       =  zero matrix
+            -> [r x c] =  the dimension of each matrix with r = rows, c = cols
+
+    - the matrix of null-space basis vectors then has the form
+
+      /                   \
+     |   - C_[r x (k-r)]   |
+     |                     |
+     |  I_[(k-r) x (k-r)]  |
+      \                   /
+
+        with dimension [k x (k-r)]
+
+    this means that multiplying this matrix with the row-reduced rearranged matrix, 
+    you get a zero matrix of dimension [n * (k - r)] as expected for k-r null-space basis vectors
+
+    Note on implementation:
+    To prevent having to copy original matrix and then rearrange columns to calculate C,
+    C is calculated by first taking the 'diminished' part of C which is already on the RHS and then
+    adding the non-pivot columns on the RHS in order. Then after adding the identity below, the rows are 
+    rearranged using an inverse of the permutation map used to position the non-pivot cols.
+
+*/
+matrix linalg::null_basis_GJ(const matrix& mat)
+{
+    // get row reduced form of matrix
+    auto tup = mat.rref();
+
+    matrix mat_rref = std::get<0>(tup);
+    auto pivots = std::get<1>(tup);
+
+    // if rank = num_cols then null space = { 0 }
+    if (pivots.size() == mat.size()[1])
+        return matrix::empty();
+
+    // all cols that don't contain a pivot need to be on LHS
+    // iterating in col direction any col without a pivot is removed
+    // and placed at the end and the col index is recorded
+    std::vector<size_t> nonpiv_cols;
+    size_t c = 0;
+    size_t i = 0;
+    while (i < pivots.size())
+    {
+        if (pivots[i] != c)
+        {
+            nonpiv_cols.push_back(c);
+            ++c;
+        }
+        else
+        {
+            ++i; ++c;
+        }
+    }
+
+    size_t Cdim_width = mat.size()[1] - *(pivots.end() - 1) - 1;
+
+    // initialise null basis matrix with correct size
+    matrix nb = gv::matrix({mat.size()[1], mat.size()[1] - pivots.size()}, 0.0);
+
+    // all non-pivot cols are sent to the RHS of matrix so LHS is diminished C matrix part
+    nb.set_region({0,0}, -1.0 * mat_rref.get_region({0, *(pivots.end() - 1) + 1}, {pivots.size(), Cdim_width}));
+
+    for (size_t i = 0; i < nonpiv_cols.size(); ++i)
+    {
+        nb.set_region({0,Cdim_width+i}, -1.0 * mat_rref.get_region({0, nonpiv_cols[i]}, {mat.size()[0], 1}));
+    }
+
+    // add identity part
+    nb.set_region({pivots.size(), 0}, gv::matrix::identity(mat.size()[1] - pivots.size()));
+
+    // rearrange rows to match mapping of non-pivot cols
+    for (size_t i = 0; i < nonpiv_cols.size(); ++i)
+        nb.move_rows(mat.size()[1] - nonpiv_cols.size() + i, nonpiv_cols[i], 1);
+
+    return nb;
+}
+
+// returns (r,c) minor of matrix
+matrix minor(const size_t& r, const size_t& c) const
+{
+    matrix result(*this);
+    result.remove_rows(r, 1);
+    result.remove_cols(c, 1);
+    return result;
+}
+
+// returns determinant using recursive formula - purely pedagogical as not efficient
+double matrix::det() const
+{
+    // matrix must be square
+    assert(m_size[0] == m_size[1]);
+    
+    if (m_size[0] == 1 && m_size[1] == 1)
+        return m_data[0];
+    else
+    {
+        double d = 0;
+        double sign = 1;
+        for (size_t i = 0; i < m_size[1]; ++i)
+        {
+            matrix min = minor(0, i);
+            d += sign * m_data[ind(0, i)] * min.det();
+            sign *= -1.0;
+        }
+        return det;
+    }
 }
 
 } // namespace gv

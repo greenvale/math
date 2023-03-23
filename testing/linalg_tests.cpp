@@ -2,6 +2,7 @@
 #include <string>
 #include <tuple>
 #include <chrono>
+#include <assert.h>
 
 #include "math.h"
 #include "../linear_algebra.hpp"
@@ -37,6 +38,49 @@ std::pair<double,uint64_t> test_invert_GJ(const gv::matrix& A)
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 
     return {(gv::matrix::matmul(A,inv) - gv::matrix::identity(A.size()[0])).mag(), duration.count()};
+}
+
+std::pair<double,uint64_t> test_null_basis_GJ(const gv::matrix& A)
+{
+    auto tup = A.rref();
+    auto pivots = std::get<1>(tup);
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    gv::matrix nb = gv::linalg::null_basis_GJ(A);
+
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+
+    // null basis should have correct number of vectors
+    assert(nb.size()[1] == A.size()[1] - pivots.size());
+
+    if (!nb.is_empty())
+        return {(gv::matrix::matmul(A,nb)).mag(), duration.count()};
+    else
+        return {0, duration.count()};
+}
+
+gv::matrix generate_null_basis_mat(const size_t& nrows, const size_t& ncols)
+{
+    assert(nrows > 0 && ncols > 0);
+
+    size_t k = rand() % nrows;
+    std::cout << "k: " << k << std::endl;
+
+    gv::matrix A = gv::matrix::random({nrows - k, ncols}, -100, 100);
+    for (size_t i = 0; i < k; ++i)
+    {
+        gv::matrix sum({1,ncols}, 0);
+        for (size_t j = 0; j < nrows - k; ++j)
+        {
+            //double s = rand() / (double)RAND_MAX);
+            double s = 1.0;
+            sum += s * A.get_region({j,0}, {1,ncols});
+        }
+        A.insert_rows((rand() % A.size()[0]), sum);
+    }
+    return A;
 }
 
 /*******************************************************************************************/
@@ -116,4 +160,5 @@ void LINALG_INV_GJ_TEST(size_t num_tests, double min, double max)
 
 int main()
 {
+    
 }
